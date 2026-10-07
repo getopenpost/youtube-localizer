@@ -12,6 +12,6 @@ Generated components retain source hashes and their provider/model/settings fing
 
 Images use content hashes as asset IDs. Current Studio thumbnails are fetched through narrow ytimg host permissions. Provider fetches omit ambient cookies and reject redirects. Fal queue URLs must stay on queue.fal.run and refer to the received request ID. Fal output fetches accept only its output-host allowlist and carry no Fal key.
 
-Backups contain validated, bounded manifests and content-hashed local blobs. They exclude credentials, provider settings and signed Studio URLs. Import strips approval and verification state, verifies asset hashes, rejects mismatched channel/video identities and merges only absent records.
+Backups contain validated, bounded manifests and content-hashed local blobs. They exclude credentials, provider settings and signed Studio URLs. Import strips approval and verification state, verifies asset hashes, rejects mismatched channel/video identities and unsafe language identifiers, and merges only absent records.
 
 No remotely downloaded logic, action interpreter, backend, OAuth flow or analytics is part of this extension.

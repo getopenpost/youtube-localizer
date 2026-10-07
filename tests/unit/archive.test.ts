@@ -89,6 +89,19 @@ it('roundtrips generated assets as unapproved cache and excludes credentials, si
   expect((await restored.job(job.id))?.slots.thumbnail?.error).toBe(
     'Local work to preserve',
   );
+  const unsafe = JSON.parse(json);
+  unsafe.jobs[0].language = '../../escape';
+  unsafe.jobs[0].id = `${video.channelId}/${video.id}/../../escape`;
+  const unsafeFiles = {
+    ...contents,
+    'history.json': strToU8(JSON.stringify(unsafe)),
+  };
+  await expect(
+    importArchive(
+      new Repository(crypto.randomUUID()),
+      new Blob([zipSync(unsafeFiles) as Uint8Array<ArrayBuffer>]),
+    ),
+  ).rejects.toThrow();
   contents[`assets/${assetHash}`] = strToU8('tampered');
   const corrupt = new Blob([zipSync(contents) as Uint8Array<ArrayBuffer>]);
   await expect(

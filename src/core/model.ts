@@ -1,5 +1,8 @@
 import { z } from 'zod';
 
+// Language identifiers also become archive paths. Accept codes, never arbitrary path strings.
+const languageCode = z.string().regex(/^[a-z]{2,3}(?:-[A-Za-z0-9]{2,8}){0,2}$/);
+
 export const componentSchema = z.enum(['title', 'description', 'thumbnail']);
 export type Component = z.infer<typeof componentSchema>;
 export const components: Component[] = ['title', 'description', 'thumbnail'];
@@ -22,7 +25,7 @@ export const videoSchema = z.object({
     .enum(['submitting', 'generated', 'ambiguous', 'error'])
     .optional(),
   extractedThumbnailText: z.array(z.string()).optional(),
-  sourceLanguage: z.string().optional(),
+  sourceLanguage: languageCode.optional(),
   visibility: z.enum([
     'published',
     'scheduled',
@@ -41,8 +44,8 @@ export const videoSchema = z.object({
 export type Video = z.infer<typeof videoSchema>;
 export const preferencesSchema = z.object({
   channelId: z.string(),
-  sourceLanguage: z.string().default('pt'),
-  targetLanguages: z.array(z.string()).max(50).default(['en', 'es', 'fr']),
+  sourceLanguage: languageCode.default('pt'),
+  targetLanguages: z.array(languageCode).max(50).default(['en', 'es', 'fr']),
   components: z.array(componentSchema).min(1).default(['title', 'description']),
   glossary: z.string().max(6000).default(''),
 });
@@ -109,8 +112,8 @@ export const jobSchema = z.object({
   id: z.string(),
   channelId: z.string(),
   videoId: z.string(),
-  language: z.string(),
-  sourceLanguage: z.string(),
+  language: languageCode,
+  sourceLanguage: languageCode,
   source: videoSchema,
   glossary: z.string(),
   enabledComponents: z.array(componentSchema).optional(),
