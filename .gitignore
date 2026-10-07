@@ -1,0 +1,11 @@
+node_modules/
+dist/
+artifacts/
+.devenv/
+.direnv/
+.env
+.env.*
+!.env.example
+test-results/
+playwright-report/
+.impeccable/review/

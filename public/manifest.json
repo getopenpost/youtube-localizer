@@ -1,0 +1,37 @@
+{
+  "manifest_version": 3,
+  "name": "YouTube Localizer by OpenPost",
+  "version": "0.1.0",
+  "description": "Localize YouTube titles, descriptions and thumbnails with your own AI providers. Review first. Preserve existing translations.",
+  "minimum_chrome_version": "120",
+  "permissions": ["storage", "sidePanel", "alarms", "unlimitedStorage"],
+  "host_permissions": ["https://studio.youtube.com/*", "https://*.ytimg.com/*"],
+  "optional_host_permissions": [
+    "https://*/*",
+    "http://localhost/*",
+    "http://127.0.0.1/*"
+  ],
+  "background": { "service_worker": "background.js", "type": "module" },
+  "action": {
+    "default_title": "Open YouTube Localizer",
+    "default_icon": { "16": "icons/16.png", "32": "icons/32.png" }
+  },
+  "icons": {
+    "16": "icons/16.png",
+    "32": "icons/32.png",
+    "48": "icons/48.png",
+    "128": "icons/128.png"
+  },
+  "side_panel": { "default_path": "sidepanel.html" },
+  "options_ui": { "page": "options.html", "open_in_tab": true },
+  "content_scripts": [
+    {
+      "matches": ["https://studio.youtube.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'none'; base-uri 'none'"
+  }
+}

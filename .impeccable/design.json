@@ -1,0 +1,78 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-07T15:12:00Z",
+  "title": "YouTube Localizer",
+  "extensions": {
+    "shadows": [],
+    "motion": [],
+    "breakpoints": [
+      { "name": "narrow", "value": "350px" },
+      { "name": "stacked", "value": "600px" },
+      { "name": "wide", "value": "800px" }
+    ],
+    "typographyMeta": {
+      "headline": {
+        "displayName": "Workspace heading",
+        "purpose": "Name the current task."
+      },
+      "body": { "displayName": "Body", "purpose": "Read and compare content." }
+    }
+  },
+  "components": [
+    {
+      "name": "Primary button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Advance the current workflow.",
+      "html": "<button class=\"ds-primary\">Apply approved</button>",
+      "css": ".ds-primary{font:500 13px Geist,sans-serif;background:var(--accent,#a44218);color:var(--surface,#fff);border:1px solid var(--accent,#a44218);border-radius:7px;padding:8px 13px;min-height:38px;cursor:pointer}.ds-primary:hover{filter:brightness(.93)}.ds-primary:focus-visible{outline:2px solid var(--accent,#a44218);outline-offset:3px}.ds-primary:disabled{opacity:.5}"
+    },
+    {
+      "name": "Secondary button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "A supporting action.",
+      "html": "<button class=\"ds-secondary\">Generate missing</button>",
+      "css": ".ds-secondary{font:500 13px Geist,sans-serif;background:var(--surface,#fff);color:var(--text,#24221f);border:1px solid var(--line,#ddd7ce);border-radius:7px;padding:8px 13px;min-height:38px;cursor:pointer}.ds-secondary:hover{background:var(--accent-soft,#fceee5);border-color:var(--accent,#a44218)}.ds-secondary:focus-visible{outline:2px solid var(--accent,#a44218);outline-offset:3px}"
+    },
+    {
+      "name": "Text field",
+      "kind": "input",
+      "description": "An editable translation.",
+      "html": "<input class=\"ds-input\" aria-label=\"Translated title\" value=\"One lesson at a time\" />",
+      "css": ".ds-input{font:400 14px Geist,sans-serif;background:var(--surface,#fff);color:var(--text,#24221f);border:1px solid var(--line,#ddd7ce);border-radius:7px;padding:9px 11px;caret-color:var(--accent,#a44218)}.ds-input:focus-visible{outline:2px solid var(--accent,#a44218);outline-offset:3px}"
+    },
+    {
+      "name": "Language chip",
+      "kind": "chip",
+      "description": "A selected target language.",
+      "html": "<button class=\"ds-chip\" aria-label=\"Remove French\">French ×</button>",
+      "css": ".ds-chip{font:400 12px Geist,sans-serif;background:var(--accent-soft,#fceee5);color:var(--accent,#a44218);border:0;border-radius:5px;padding:5px 9px;cursor:pointer}.ds-chip:focus-visible{outline:2px solid var(--accent,#a44218);outline-offset:3px}"
+    },
+    {
+      "name": "Language review",
+      "kind": "card",
+      "description": "A language and its component states.",
+      "html": "<section class=\"ds-review\"><h2>French</h2><p>Title and description · Already present</p></section>",
+      "css": ".ds-review{font:400 13px Geist,sans-serif;background:var(--surface,#fff);color:var(--text,#24221f);border:1px solid var(--line,#ddd7ce);border-radius:12px;padding:16px 20px}.ds-review h2{font-size:18px;margin:0}.ds-review p{color:var(--muted,#6b655e);margin:12px 0 0}"
+    }
+  ],
+  "narrative": {
+    "overview": "A compact editing utility beside Studio, with a wider review workspace in a full extension tab.",
+    "keyCharacteristics": [
+      "Source comparison",
+      "Component approval",
+      "Explicit verification states"
+    ],
+    "rules": [],
+    "dos": [
+      "Use component-level approval and explicit error recovery.",
+      "Keep source content visible during review.",
+      "Keep OpenPost promotion in About and onboarding."
+    ],
+    "donts": [
+      "Do not treat imported history as Studio authority.",
+      "Do not imply translated packaging includes translated audio."
+    ]
+  }
+}
