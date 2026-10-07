@@ -56,10 +56,25 @@ export const providerConfigSchema = z.object({
   baseUrl: z.string().url().default('https://api.openai.com/v1'),
   model: z.string().min(1).max(150).default('gpt-4.1-mini'),
   auth: z.enum(['bearer', 'none']).default('bearer'),
+  imageProvider: z.enum(['openai', 'fal', 'layerize']).default('openai'),
+  imageModel: z
+    .enum(['gpt-image-2.5-sunburst', 'gpt-image-2.5-flare'])
+    .default('gpt-image-2.5-sunburst'),
+  imageQuality: z
+    .enum(['auto', 'low', 'medium', 'high', 'xhigh', 'max'])
+    .default('auto'),
   vision: z.boolean().default(true),
   falModel: z
-    .enum(['fal-ai/nano-banana/edit', 'fal-ai/nano-banana-pro/edit'])
+    .enum([
+      'fal-ai/nano-banana/edit',
+      'fal-ai/nano-banana-pro/edit',
+      'ideogram/v4.5/edit',
+    ])
     .default('fal-ai/nano-banana-pro/edit'),
+  ideogramQuality: z
+    .enum(['very_low', 'low', 'medium', 'high'])
+    .default('very_low'),
+  ideogramPrecision: z.enum(['regular', 'high']).default('high'),
   imageResolution: z.enum(['1K', '2K']).default('1K'),
   requestLimit: z.number().int().min(1).max(1000).default(30),
 });
@@ -95,7 +110,9 @@ export const slotSchema = z.object({
   assetId: z.string().optional(),
   assetHash: z.string().optional(),
   provider: z.string().optional(),
+  requestId: z.string().optional(),
   settingsHash: z.string().optional(),
+  templateRevision: z.string().optional(),
   error: z.string().optional(),
   verifiedAt: z.number().optional(),
   lastEvidence: evidenceSchema.optional(),
@@ -130,6 +147,13 @@ export const jobSchema = z.object({
   updatedAt: z.number(),
 });
 export type Job = z.infer<typeof jobSchema>;
+export const accountSchema = z.object({
+  channelId: z.string().regex(/^UC[\w-]{22}$/),
+  channelName: z.string().max(300),
+  authuser: z.string().max(200).optional(),
+  tabId: z.number().int().optional(),
+});
+export type Account = z.infer<typeof accountSchema>;
 export const runSchema = z.object({
   mode: z.enum(['paused', 'generate', 'apply']).default('paused'),
   epoch: z.number().default(0),
@@ -138,6 +162,7 @@ export const runSchema = z.object({
   jobIds: z.array(z.string()).default([]),
   reason: z.string().default(''),
   workingTabId: z.number().optional(),
+  authuser: z.string().optional(),
   channelId: z.string().optional(),
 });
 export type Run = z.infer<typeof runSchema>;

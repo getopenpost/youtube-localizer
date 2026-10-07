@@ -2,7 +2,13 @@ import { expect, it } from 'vitest';
 import { strFromU8, strToU8, unzipSync, zipSync } from 'fflate';
 import { Repository } from '../../src/core/storage';
 import { exportArchive, importArchive } from '../../src/core/archive';
-import { hash, jobId, type Job, type Video } from '../../src/core/model';
+import {
+  defaultSettings,
+  hash,
+  jobId,
+  type Job,
+  type Video,
+} from '../../src/core/model';
 it('roundtrips generated assets as unapproved cache and excludes credentials, signed URLs and verification authority', async () => {
   const repo = new Repository(crypto.randomUUID());
   const blob = new Blob(['fixture-image-bytes'], { type: 'image/jpeg' });
@@ -55,6 +61,7 @@ it('roundtrips generated assets as unapproved cache and excludes credentials, si
   await repo.putJob(job);
   await repo.putSettings({
     provider: {
+      ...defaultSettings().provider,
       protocol: 'openai',
       preset: 'openai',
       baseUrl: 'https://api.openai.com/v1',
@@ -67,12 +74,32 @@ it('roundtrips generated assets as unapproved cache and excludes credentials, si
     },
     rememberCredentials: true,
   });
+  await repo.putTemplate({
+    id: assetHash,
+    sourceHash: assetHash,
+    state: 'ready',
+    backgroundAssetId: assetHash,
+    width: 1280,
+    height: 720,
+    layers: [],
+    approved: true,
+    revision: 'saved',
+    request: {
+      requestId: 'template-receipt',
+      model: 'fal-ai/ideogram/v3/layerize-text',
+      statusUrl:
+        'https://queue.fal.run/fal-ai/ideogram/requests/template-receipt/status',
+      responseUrl:
+        'https://queue.fal.run/fal-ai/ideogram/requests/template-receipt',
+    },
+  });
   const archive = await exportArchive(repo);
   const contents = unzipSync(new Uint8Array(await archive.arrayBuffer()));
   const json = strFromU8(contents['history.json']);
   expect(json).not.toContain('private-thumbnail-token');
   expect(json).not.toContain('rememberCredentials');
   expect(json).not.toContain('api.openai.com');
+  expect(json).not.toContain('queue.fal.run');
   const restored = new Repository(crypto.randomUUID());
   await importArchive(restored, archive);
   const result = (await restored.job(job.id))!;
@@ -80,6 +107,11 @@ it('roundtrips generated assets as unapproved cache and excludes credentials, si
   expect(result.slots.thumbnail?.lastEvidence?.state).toBe('unknown');
   expect(result.slots.thumbnail?.verifiedAt).toBeUndefined();
   expect(result.wordingApproved).toBe(false);
+  expect((await restored.template(assetHash))?.approved).toBe(false);
+  expect((await restored.template(assetHash))?.backgroundAssetId).toBe(
+    assetHash,
+  );
+  expect((await restored.template(assetHash))?.request).toBeUndefined();
   expect((await restored.asset(assetHash))?.blob.size).toBe(blob.size);
   expect((await restored.video(video.id))?.checkedAt).toBeUndefined();
   // Import merges rather than overwriting work already edited on the destination.

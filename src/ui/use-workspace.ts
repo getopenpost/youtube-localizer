@@ -1,8 +1,10 @@
+import type { LayerTemplate } from '../layers/model';
 import { useSyncExternalStore } from 'react';
 import { repository } from '../core/storage';
 import {
   defaultRun,
   defaultSettings,
+  type Account,
   type Job,
   type Preferences,
   type Run,
@@ -10,6 +12,9 @@ import {
   type Video,
 } from '../core/model';
 export interface Workspace {
+  accounts: Account[];
+  activeChannel: string;
+  templates: LayerTemplate[];
   videos: Video[];
   jobs: Job[];
   preferences: Preferences[];
@@ -23,6 +28,9 @@ interface Snapshot {
 }
 let snapshot: Snapshot = {
   workspace: {
+    accounts: [],
+    activeChannel: '',
+    templates: [],
     videos: [],
     jobs: [],
     preferences: [],
@@ -36,15 +44,36 @@ const listeners = new Set<() => void>();
 let timer: ReturnType<typeof setInterval> | undefined;
 async function refresh() {
   try {
-    const [videos, jobs, preferences, settings, run] = await Promise.all([
+    const [
+      videos,
+      jobs,
+      preferences,
+      settings,
+      run,
+      templates,
+      accounts,
+      activeChannel,
+    ] = await Promise.all([
       repository.videos(),
       repository.jobs(),
       repository.allPreferences(),
       repository.settings(),
       repository.run(),
+      repository.templates(),
+      repository.accounts(),
+      repository.activeChannel(),
     ]);
     snapshot = {
-      workspace: { videos, jobs, preferences, settings, run },
+      workspace: {
+        videos,
+        jobs,
+        preferences,
+        settings,
+        run,
+        templates,
+        accounts,
+        activeChannel,
+      },
       loading: false,
       storageError: '',
     };

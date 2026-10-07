@@ -298,3 +298,15 @@ it('a source thumbnail confirmed to contain no text does not create paid image c
     'not-needed',
   );
 });
+it('keeps approved manual thumbnail words when generating the remaining title and description', async () => {
+  const { repo, id, runner } = await setup();
+  const job = await getJob(repo, id);
+  job.thumbnailStrings = ['MY APPROVED WORDS'];
+  job.wordingApproved = true;
+  await repo.putJob(job);
+  await runner.tick();
+  const result = await getJob(repo, id);
+  expect(result.slots.title?.value).toBe('Learn');
+  expect(result.thumbnailStrings).toEqual(['MY APPROVED WORDS']);
+  expect(result.wordingApproved).toBe(true);
+});

@@ -1,7 +1,11 @@
+import { templateSchema, type LayerTemplate } from '../layers/model';
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
 import {
+  accountSchema,
+  type Account,
   defaultRun,
   defaultSettings,
+  settingsSchema,
   type Asset,
   type Job,
   type Run,
@@ -13,7 +17,10 @@ interface LocalizerDB extends DBSchema {
   videos: { key: string; value: Video };
   jobs: { key: string; value: Job };
   assets: { key: string; value: Asset };
-  meta: { key: string; value: Run | Settings | Preferences };
+  meta: {
+    key: string;
+    value: Run | Settings | Preferences | LayerTemplate | Account | string;
+  };
 }
 export class Repository {
   private database?: Promise<IDBPDatabase<LocalizerDB>>;
@@ -57,6 +64,48 @@ export class Repository {
   async putAsset(asset: Asset) {
     await (await this.db()).put('assets', asset);
   }
+  async template(id: string): Promise<LayerTemplate | undefined> {
+    const value = await (await this.db()).get('meta', `template:${id}`);
+    return value ? templateSchema.parse(value) : undefined;
+  }
+  async templates(): Promise<LayerTemplate[]> {
+    const db = await this.db();
+    const keys = await db.getAllKeys('meta');
+    const values = await db.getAll('meta');
+    return values
+      .filter((_, index) => keys[index].startsWith('template:'))
+      .map((value) => templateSchema.parse(value));
+  }
+  async putTemplate(value: LayerTemplate) {
+    await (
+      await this.db()
+    ).put('meta', templateSchema.parse(value), `template:${value.id}`);
+  }
+  async accounts(): Promise<Account[]> {
+    const db = await this.db();
+    const keys = await db.getAllKeys('meta');
+    const values = await db.getAll('meta');
+    return values
+      .filter((_, index) => keys[index].startsWith('account:'))
+      .map((value) => accountSchema.parse(value));
+  }
+  async account(id: string): Promise<Account | undefined> {
+    const value = await (await this.db()).get('meta', `account:${id}`);
+    return value ? accountSchema.parse(value) : undefined;
+  }
+  async putAccount(value: Account) {
+    await (
+      await this.db()
+    ).put('meta', accountSchema.parse(value), `account:${value.channelId}`);
+  }
+  async activeChannel(): Promise<string> {
+    return (
+      ((await (await this.db()).get('meta', 'active-channel')) as string) ?? ''
+    );
+  }
+  async selectChannel(id: string) {
+    await (await this.db()).put('meta', id, 'active-channel');
+  }
   async run(): Promise<Run> {
     return (
       ((await (await this.db()).get('meta', 'run')) as Run) ?? defaultRun()
@@ -66,9 +115,8 @@ export class Repository {
     await (await this.db()).put('meta', run, 'run');
   }
   async settings(): Promise<Settings> {
-    return (
-      ((await (await this.db()).get('meta', 'settings')) as Settings) ??
-      defaultSettings()
+    return settingsSchema.parse(
+      (await (await this.db()).get('meta', 'settings')) ?? defaultSettings(),
     );
   }
   async putSettings(settings: Settings) {
@@ -126,6 +174,7 @@ export class Repository {
     jobs: Job[];
     assets: Asset[];
     preferences: Preferences[];
+    templates?: LayerTemplate[];
   }) {
     const db = await this.db();
     const tx = db.transaction(
@@ -144,6 +193,9 @@ export class Repository {
     for (const pref of data.preferences)
       if (!(await tx.objectStore('meta').get(`channel:${pref.channelId}`)))
         await tx.objectStore('meta').put(pref, `channel:${pref.channelId}`);
+    for (const template of data.templates ?? [])
+      if (!(await tx.objectStore('meta').get(`template:${template.id}`)))
+        await tx.objectStore('meta').put(template, `template:${template.id}`);
     await tx.done;
   }
 }

@@ -9,6 +9,15 @@ import { dataUrl, fetchImage, imageAsset } from './platform/images';
 import { extractThumbnailText, translate } from './providers/text';
 import { pollImage, submitImage } from './providers/fal';
 import { ProviderError } from './providers/http';
+import {
+  pollTemplates,
+  prepareTemplate,
+  recoverTemplates,
+  saveTemplate,
+} from './layers/coordinator';
+import { renderedLayoutIsCurrent } from './layers/current';
+import { render } from './layers/bridge';
+import { editImage } from './providers/openai-image';
 const bridge = new StudioBridge(repo);
 const runner = new Runner(
   repo,
@@ -23,6 +32,54 @@ const runner = new Runner(
       if (!asset)
         throw new Error(
           'Cache or choose a source thumbnail before generating.',
+        );
+      if (config.imageProvider === 'layerize') {
+        const template = await repo.template(asset.id);
+        if (!template?.approved || !template.backgroundAssetId)
+          throw new ProviderError(
+            'Prepare and approve the editable thumbnail first.',
+            'rejected',
+          );
+        if (job.slots.thumbnail)
+          job.slots.thumbnail.templateRevision = template.revision;
+        await repo.putJob(job);
+        const background = await repo.asset(template.backgroundAssetId);
+        if (!background) throw new Error('The cached background is missing.');
+        const composed = await imageAsset(
+          await render(
+            template,
+            background.blob,
+            job.thumbnailStrings ?? [],
+            job.language,
+          ),
+          true,
+        );
+        await repo.putAsset(composed);
+        return {
+          assetId: composed.id,
+          hash: composed.hash,
+          provider: 'ideogram-layerize/local',
+        };
+      }
+      if (config.imageProvider !== 'fal')
+        return editImage(
+          job,
+          config,
+          (await credentials()).imageKey ||
+            (config.protocol === 'openai' &&
+            config.baseUrl.replace(/\/$/, '') === 'https://api.openai.com/v1'
+              ? (await credentials()).textKey
+              : ''),
+          asset.blob,
+          async (blob) => {
+            const result = await imageAsset(blob);
+            await repo.putAsset(result);
+            return result;
+          },
+          async (id) => {
+            if (job.slots.thumbnail) job.slots.thumbnail.requestId = id;
+            await repo.putJob(job);
+          },
         );
       return submitImage(
         job,
@@ -45,7 +102,10 @@ const runner = new Runner(
 const ready = (async () => {
   await restrictStorage();
   await navigator.locks.request('localizer-coordinator', () =>
-    runner.recover(),
+    (async () => {
+      await runner.recover();
+      await recoverTemplates(repo);
+    })(),
   );
 })();
 let advancing = false;
@@ -55,7 +115,7 @@ const kick = () => {
   void ready
     .then(() =>
       navigator.locks.request('localizer-coordinator', async () => {
-        while (await runner.tick()) {
+        while ((await pollTemplates(repo)) || (await runner.tick())) {
           /* Every operation persists before this continuation. */
         }
       }),
@@ -92,7 +152,8 @@ async function assertPaused() {
 async function execute(value: Command): Promise<unknown> {
   switch (value.type) {
     case 'discover': {
-      const context = await bridge.discover();
+      await assertPaused();
+      const context = await bridge.discover(value.channelId);
       for (const video of context.videos) {
         const existing = await repo.video(video.id);
         await repo.putVideo(
@@ -101,6 +162,15 @@ async function execute(value: Command): Promise<unknown> {
       }
       return context;
     }
+    case 'select-channel':
+      await assertPaused();
+      if (
+        !(await repo.account(value.channelId)) &&
+        !(await repo.videos()).some((v) => v.channelId === value.channelId)
+      )
+        throw new Error('Unknown channel.');
+      await repo.selectChannel(value.channelId);
+      return;
     case 'preflight': {
       await assertPaused();
       const savedPreferences = await repo.preferences(value.channelId);
@@ -169,9 +239,33 @@ async function execute(value: Command): Promise<unknown> {
         }
         snapshot.video.channelName = known.channelName;
         snapshot.video.sourceLanguage ??= preferences.sourceLanguage;
+        const template = snapshot.video.thumbnailAssetId
+          ? await repo.template(snapshot.video.thumbnailAssetId)
+          : undefined;
+        if (template?.state === 'ready' && template.approved) {
+          snapshot.video.thumbnailText = template.layers.map(
+            (layer) => layer.text,
+          );
+          snapshot.video.thumbnailTextApproved = true;
+        }
         await preflightPlan(repo, snapshot, preferences);
       }
       return { checked: value.videoIds.length };
+    }
+    case 'prepare-template':
+      await assertPaused();
+      return prepareTemplate(repo, value.videoId, value.acknowledged);
+    case 'save-template':
+      await assertPaused();
+      return saveTemplate(repo, value.id, value.layers, value.approved);
+    case 'retry-template': {
+      await assertPaused();
+      const template = await repo.template(value.id);
+      if (!template?.request) throw new Error('No saved preparation receipt.');
+      template.error = undefined;
+      template.state = 'waiting';
+      await repo.putTemplate(template);
+      return;
     }
     case 'settings':
       await assertPaused();
@@ -190,12 +284,42 @@ async function execute(value: Command): Promise<unknown> {
       for (const job of jobs) {
         const preferences = await repo.preferences(job.channelId);
         if (preferences) job.enabledComponents = preferences.components;
+        const slot = job.slots.thumbnail;
+        if (
+          value.type === 'generate' &&
+          slot?.provider === 'ideogram-layerize/local' &&
+          slot.application === 'stale' &&
+          slot.lastEvidence?.state === 'missing' &&
+          job.wordingApproved
+        ) {
+          const video = await repo.video(job.videoId);
+          const template = video?.thumbnailAssetId
+            ? await repo.template(video.thumbnailAssetId)
+            : undefined;
+          if (
+            template?.approved &&
+            job.source.thumbnailAssetId === video?.thumbnailAssetId &&
+            slot.sourceHash === video?.sourceHashes?.thumbnail &&
+            job.thumbnailStrings?.length === template.layers.length
+          ) {
+            slot.generation = 'queued';
+            slot.application = 'pending';
+            slot.error = undefined;
+          }
+        }
         await repo.putJob(job);
       }
       const previous = await repo.run();
       const run = {
         ...defaultRun(),
-        workingTabId: previous.workingTabId,
+        workingTabId:
+          previous.channelId === jobs[0].channelId
+            ? previous.workingTabId
+            : undefined,
+        authuser:
+          previous.channelId === jobs[0].channelId
+            ? previous.authuser
+            : undefined,
         channelId: jobs[0].channelId,
         mode:
           value.type === 'generate'
@@ -245,6 +369,13 @@ async function execute(value: Command): Promise<unknown> {
       )
         throw new Error(
           'Check that this generated component is still missing before approving it.',
+        );
+      if (
+        value.component === 'thumbnail' &&
+        !(await renderedLayoutIsCurrent(repo, job))
+      )
+        throw new Error(
+          'The editable layout changed. Render the thumbnail again before approving it.',
         );
       if (value.component !== 'thumbnail' && !slot.value?.trim())
         throw new Error('Enter a nonempty translation before approving.');
@@ -522,7 +653,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             sender.frameId === 0 &&
             run.mode === 'apply' &&
             run.epoch === message.epoch &&
-            sender.tab?.id === run.workingTabId,
+            sender.tab?.id === run.workingTabId &&
+            new URL(sender.url!).searchParams.get('authuser') ===
+              (run.authuser ?? null),
         }),
       );
       return true;
@@ -557,7 +690,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     )
     .then((data) => {
       sendResponse({ ok: true, data });
-      if (parsed.data.type === 'generate' || parsed.data.type === 'apply')
+      if (
+        ['generate', 'apply', 'prepare-template', 'retry-template'].includes(
+          parsed.data.type,
+        )
+      )
         kick();
     })
     .catch((error) =>

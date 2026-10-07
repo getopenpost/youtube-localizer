@@ -22,7 +22,15 @@ export interface StudioState {
   description: string;
   saves: number;
 }
-function studioHtml(path: string, state: StudioState) {
+export function studioHtml(
+  path: string,
+  state: StudioState,
+  account = {
+    channelId: CHANNEL,
+    channelName: 'Fixture teacher',
+    videoId: VIDEO,
+  },
+) {
   const content = path.includes('/channel/');
   const details = path.endsWith('/edit');
   const escaped = (s: string) =>
@@ -32,7 +40,7 @@ function studioHtml(path: string, state: StudioState) {
       .replaceAll('"', '&quot;');
   const thumbnail =
     '<img src="https://i9.ytimg.com/vi/abcdefghijk/custom.png?fixture-auth=1" alt="Current thumbnail" width="1280" height="720" />';
-  const navigation = `<ytcp-navigation-drawer><a href="/channel/${CHANNEL}/videos">Channel content</a><div id="entity-name">Fixture teacher</div></ytcp-navigation-drawer>`;
+  const navigation = `<ytcp-navigation-drawer><a href="/channel/${account.channelId}/videos">Channel content</a><div id="entity-name">${escaped(account.channelName)}</div></ytcp-navigation-drawer>`;
   const script = `<script>
   const persisted=${JSON.stringify(state.translations)};
   const table=document.querySelector('table');
@@ -40,10 +48,10 @@ function studioHtml(path: string, state: StudioState) {
   function action(label,fn){const button=document.createElement('button');button.textContent=label;button.onclick=fn;return button;}
   function dialog(language,kind,edit=false){const d=document.createElement('div');d.setAttribute('role','dialog');d.innerHTML=kind==='thumbnail'?'<h2>Thumbnail translation</h2><input type="file" accept="image/jpeg"/>':'<h2>Title and description translation</h2><textarea aria-label="Enter translated title"></textarea><textarea aria-label="Enter translated description"></textarea>';document.body.append(d);if(kind!=='thumbnail'){d.querySelectorAll('textarea')[0].value=persisted[language].title;d.querySelectorAll('textarea')[1].value=persisted[language].description;}d.append(action(edit?'Save':'Publish',async()=>{if(kind==='thumbnail')persisted[language].thumbnail=!!d.querySelector('input').files.length;else{persisted[language].title=d.querySelectorAll('textarea')[0].value;persisted[language].description=d.querySelectorAll('textarea')[1].value;}await send();d.remove();render();}));d.append(action('Close',()=>d.remove()));}
   function render(){if(!table)return;table.querySelector('tbody').innerHTML='';for(const [language,translation] of Object.entries(persisted)){const row=document.createElement('tr');row.setAttribute('role','row');row.setAttribute('data-language-code',language);for(let i=0;i<5;i++){const cell=document.createElement('td');cell.setAttribute('role','cell');row.append(cell);}row.children[0].textContent=language==='en'?'English':language==='fr'?'French':'Spanish';row.children[1].textContent='Audio untouched';row.children[2].textContent='Subtitles untouched';row.children[3].append(action(translation.title||translation.description?'Edit':'Add',()=>dialog(language,'metadata',!!(translation.title||translation.description))));row.children[4].append(action(translation.thumbnail?'Edit thumbnail':'Add',()=>dialog(language,'thumbnail',translation.thumbnail)));table.querySelector('tbody').append(row);}}
-  document.querySelector('#add-language')?.addEventListener('click',()=>{const picker=document.createElement('div');picker.setAttribute('role','dialog');const list=document.createElement('div');list.setAttribute('role','listbox');for(const [code,name] of [['pt','Portuguese'],['en','English'],['fr','French'],['es','Spanish']]){const opt=document.createElement('button');opt.setAttribute('role','option');opt.setAttribute('test-id',code);opt.setAttribute('aria-disabled',code==='pt'||!!persisted[code]?'true':'false');opt.textContent=name;opt.onclick=()=>{persisted[code]={title:'',description:'',thumbnail:false};picker.remove();render();};list.append(opt);}picker.append(list);document.body.append(picker);const dismiss=e=>{if(e.key==='Escape'){picker.remove();document.removeEventListener('keydown',dismiss);}};document.addEventListener('keydown',dismiss);});render();
+  document.querySelector('#add-language')?.addEventListener('click',()=>{const picker=document.createElement('div');picker.setAttribute('role','dialog');const list=document.createElement('div');list.setAttribute('role','listbox');for(const [code,name] of [['pt','Portuguese'],['en','English'],['fr','French'],['es','Spanish'],['de','German'],['ar','Arabic']]){const opt=document.createElement('button');opt.setAttribute('role','option');opt.setAttribute('test-id',code);opt.setAttribute('aria-disabled',code==='pt'||!!persisted[code]?'true':'false');opt.textContent=name;opt.onclick=()=>{persisted[code]={title:'',description:'',thumbnail:false};picker.remove();render();};list.append(opt);}picker.append(list);document.body.append(picker);const dismiss=e=>{if(e.key==='Escape'){picker.remove();document.removeEventListener('keydown',dismiss);}};document.addEventListener('keydown',dismiss);});render();
   </script>`;
   const body = content
-    ? `<main><h1>Channel content</h1><ytcp-video-section-content><ytcp-video-row><a id="video-title" href="/video/${VIDEO}/edit" aria-label="${escaped(state.title)}">${escaped(state.title)}</a><div class="tablecell-visibility">Scheduled</div><div class="tablecell-date">Oct 12, 2030</div></ytcp-video-row></ytcp-video-section-content></main>`
+    ? `<main><h1>Channel content</h1><ytcp-video-section-content><ytcp-video-row><a id="video-title" href="/video/${account.videoId}/edit" aria-label="${escaped(state.title)}">${escaped(state.title)}</a><div class="tablecell-visibility">Scheduled</div><div class="tablecell-date">Oct 12, 2030</div></ytcp-video-row></ytcp-video-section-content></main>`
     : details
       ? `<main><h1>Video details</h1><ytcp-video-metadata-editor><div role="textbox" contenteditable="true" aria-label="Add a title that describes your video">${escaped(state.title)}</div><div role="textbox" contenteditable="true" aria-label="Tell viewers about your video">${escaped(state.description)}</div>${thumbnail}</ytcp-video-metadata-editor><ytcp-video-metadata-visibility>${escaped(state.visibility)}</ytcp-video-metadata-visibility></main>`
       : `<main><h1>Languages</h1><h2>Video language: ${state.sourceLanguage ?? 'Not set'}</h2><button id="add-language">Add language</button><ytgn-video-translations-list><table id="ytgn-video-translations-list-table" aria-label="Translations"><thead><tr role="row">${['Language', 'Audio', 'Subtitles', 'Title & description', 'Thumbnail'].map((label) => `<th role="columnheader">${label}</th>`).join('')}</tr></thead><tbody></tbody></table></ytgn-video-translations-list></main>`;
@@ -131,7 +139,7 @@ export async function openSelection(context: BrowserContext, id: string) {
     .or(panel.getByRole('button', { name: 'Refresh videos from Studio' }))
     .click();
   await expect(
-    panel.getByText('Fixture teacher', { exact: true }),
+    panel.getByRole('heading', { name: 'Fixture teacher', exact: true }),
   ).toBeVisible();
   // Resume an existing working tab: Chrome-created tabs can navigate before Playwright attaches interception.
   const worker = context.serviceWorkers()[0];

@@ -29,3 +29,9 @@ Working name: YouTube Localizer, by OpenPost. Include an OpenPost CTA in About a
 ## Evidence
 
 The user supplied an eight-part proposal. Live, read-only Studio inspection on 2026-10-07 confirmed the content list, details route, translations route, and language-picker codes on an English Studio UI. Real paid generation and scheduled-video writes remain pilot gates until verified. No fabricated live success claims.
+
+## Current scope
+
+GPT Image 2.5 Sunburst is the default editor. Ideogram 4.5 Edit supports very_low quality with high precision through Fal. Layerize Text prepares one reusable background and editable layout per source hash, then renders language variants locally. Manual wording avoids translation requests; AI wording still uses the text provider.
+
+Support multiple Studio accounts/channels with isolated preferences and history, observed account selectors and one bound channel per batch. Main screens use one next action. Layout controls and advanced model settings are folded away. All provider access uses API keys; ChatGPT plan sign-in was removed from scope by the user.

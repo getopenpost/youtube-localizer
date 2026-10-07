@@ -67,7 +67,7 @@ components:
 
 A compact editing utility beside Studio, with a wider review workspace in a full extension tab. OpenPost's warm neutral colours and burnt-orange accent carry the family connection. The interface follows the operating system's light or dark preference.
 
-Rows expose video state. Source text and editable translations stay close enough to compare. Thumbnail steps appear only when thumbnails are selected. The primary action names the next operation and remains available below the review cards.
+Rows expose video state. Source text and editable translations stay close enough to compare. Thumbnail steps appear only when thumbnails are selected. The primary action names the next operation and remains available below the review cards. Settings hides advanced controls. Review uses flat sections and spacing, with explanations only for actionable failures.
 
 ## Colors
 
@@ -107,3 +107,5 @@ Status labels distinguish discovery, missing components, generation, approval, a
 - Show provider costs and uncertain outcomes before a new request.
 - Do not treat imported history as Studio authority.
 - Do not imply translated packaging includes translated audio.
+
+Editable text uses the source preview as its canvas. Text fields stay visible; box geometry and typography sit under Adjust layout. Dragging is optional, numeric controls provide keyboard access. Invalid or overflowing text prevents layout approval.

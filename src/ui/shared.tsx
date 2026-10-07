@@ -59,21 +59,11 @@ export function About() {
   return (
     <footer className="about">
       <details>
-        <summary>About & privacy</summary>
+        <summary>About</summary>
         <p>
-          YouTube Localizer is a standalone tool by OpenPost. Titles and
-          descriptions go directly to your text provider. Thumbnails go to Fal
-          and its model provider. There is no OpenPost account, backend or
-          analytics.
-        </p>
-        <p>
-          This translates packaging. Your video’s audio and subtitles stay in
-          their original language.
-        </p>
-        <p>
-          Keys stay in the extension. Remembering them on this device uses local
-          browser storage, which is not an OS secret vault. Uninstalling removes
-          your local history. Export a backup first.
+          Text and images go directly to your chosen providers. API requests use
+          their billing. Your history stays in this browser; export it before
+          uninstalling.
         </p>
         <a
           className="openpost-cta"
@@ -84,7 +74,6 @@ export function About() {
           Plan and publish with OpenPost <ArrowUpRight size={15} />
         </a>
       </details>
-      <span className="local-note">Your providers. Your browser.</span>
     </footer>
   );
 }

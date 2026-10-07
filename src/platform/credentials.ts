@@ -2,6 +2,7 @@ import { z } from 'zod';
 const credentialsSchema = z.object({
   textKey: z.string().max(2000).default(''),
   falKey: z.string().max(2000).default(''),
+  imageKey: z.string().max(2000).default(''),
 });
 export type Credentials = z.infer<typeof credentialsSchema>;
 export async function restrictStorage() {
@@ -18,7 +19,11 @@ export async function credentials(): Promise<Credentials> {
     (await chrome.storage.local.get('credentials')).credentials ?? {},
   );
 }
-export async function saveCredentials(value: Credentials, remember: boolean) {
+export async function saveCredentials(
+  value: Pick<Credentials, 'textKey' | 'falKey'> &
+    Partial<Pick<Credentials, 'imageKey'>>,
+  remember: boolean,
+) {
   await restrictStorage();
   const parsed = credentialsSchema.parse(value);
   // Remove the persistent copy before switching to a session-only policy.

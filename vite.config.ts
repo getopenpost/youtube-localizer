@@ -4,7 +4,9 @@ export default defineConfig({
   plugins: [react()],
   base: './',
   build: {
-    rollupOptions: { input: ['sidepanel.html', 'review.html', 'options.html'] },
+    rollupOptions: {
+      input: ['sidepanel.html', 'review.html', 'options.html', 'render.html'],
+    },
   },
   server: { port: 4397, strictPort: true },
 });

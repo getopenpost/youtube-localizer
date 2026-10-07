@@ -1,3 +1,4 @@
+import { templateSchema } from '../layers/model';
 import { zipSync, unzip, strToU8, strFromU8 } from 'fflate';
 import { z } from 'zod';
 import {
@@ -17,6 +18,7 @@ const exportVideo = (video: z.infer<typeof videoSchema>) => ({
   thumbnailUrl: undefined,
 });
 const archiveSchema = z.object({
+  templates: z.array(templateSchema).max(10000).default([]),
   format: z.literal('youtube-localizer'),
   version: z.literal(1),
   videos: z.array(videoSchema).max(10000),
@@ -37,12 +39,17 @@ const archiveSchema = z.object({
 export async function exportArchive(repo: Repository): Promise<Blob> {
   const assets = await repo.assets();
   const manifest = {
+    templates: (await repo.templates()).map((template) => ({
+      ...template,
+      request: undefined,
+    })),
     format: 'youtube-localizer',
     version: 1,
     videos: (await repo.videos()).map(exportVideo),
     jobs: (await repo.jobs()).map((job) => ({
       ...job,
       source: exportVideo(job.source),
+      falRequest: undefined,
     })),
     preferences: await repo.allPreferences(),
     assets: assets.map(({ blob, ...asset }) => ({ ...asset, type: blob.type })),
@@ -152,7 +159,8 @@ export async function importArchive(repo: Repository, file: Blob) {
       slot.application = 'pending';
       slot.lastEvidence = { state: 'unknown' };
       slot.verifiedAt = undefined;
-      if (slot.generation === 'submitting') slot.generation = 'ambiguous';
+      if (['submitting', 'waiting'].includes(slot.generation))
+        slot.generation = 'ambiguous';
       slot.error =
         'Imported cache. Run a fresh Studio preflight before generation or application.';
     }
@@ -162,10 +170,23 @@ export async function importArchive(repo: Repository, file: Blob) {
     video.thumbnailUrl = undefined;
     video.checkedAt = undefined;
   }
+  for (const template of manifest.templates) {
+    if (
+      (template.backgroundAssetId &&
+        !assetIds.has(template.backgroundAssetId)) ||
+      !assetIds.has(template.id)
+    )
+      throw new Error('An editable template references a missing image.');
+    template.approved = false;
+    if (['submitting', 'waiting'].includes(template.state))
+      template.state = 'ambiguous';
+    template.request = undefined;
+  }
   await repo.importCache({
     videos: manifest.videos,
     jobs: manifest.jobs,
     assets,
     preferences: manifest.preferences,
+    templates: manifest.templates,
   });
 }

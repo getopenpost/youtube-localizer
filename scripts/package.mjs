@@ -11,5 +11,7 @@ async function collect(dir) {
 }
 await collect('dist');
 await mkdir('artifacts', { recursive: true });
-await writeFile('artifacts/youtube-localizer-0.1.0.zip', zipSync(files));
-console.log('artifacts/youtube-localizer-0.1.0.zip');
+const { version } = JSON.parse(await readFile('package.json', 'utf8'));
+const output = `artifacts/youtube-localizer-${version}.zip`;
+await writeFile(output, zipSync(files));
+console.log(output);

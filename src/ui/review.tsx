@@ -20,6 +20,8 @@ import { languageName } from '../core/languages';
 import { repository } from '../core/storage';
 import { exportGenerated } from '../core/archive';
 import { command } from '../platform/messages';
+import { LayerEditor } from './layer-editor';
+import type { LayerTemplate } from '../layers/model';
 import { imageAsset } from '../platform/images';
 import {
   AssetImage,
@@ -73,26 +75,33 @@ function TextReview({
             onChange={(e) => setDraft(e.target.value)}
           />
           <div className="field-actions">
-            <span>
-              {value.length}/{component === 'title' ? 100 : 5000}
-            </span>
-            <button
-              className="text-button"
-              disabled={disabled || draft === undefined || draft === slot.value}
-              onClick={() =>
-                onAction(async () => {
-                  await command({
-                    type: 'edit',
-                    jobId: job.id,
-                    component,
-                    value,
-                  });
-                  setDraft(undefined);
-                })
-              }
-            >
-              Save wording
-            </button>
+            {draft !== undefined && (
+              <span>
+                {value.length}/{component === 'title' ? 100 : 5000}
+              </span>
+            )}
+            {draft !== undefined && draft !== slot.value && (
+              <button
+                className="text-button"
+                disabled={
+                  disabled || draft === undefined || draft === slot.value
+                }
+                onClick={() =>
+                  onAction(async () => {
+                    await command({
+                      type: 'edit',
+                      jobId: job.id,
+                      component,
+                      value,
+                    });
+                    setDraft(undefined);
+                  })
+                }
+              >
+                Save wording
+              </button>
+            )}
+
             <label className="checkbox-label">
               <input
                 type="checkbox"
@@ -167,24 +176,16 @@ function WordingReview({
   disabled: boolean;
   onAction: (fn: () => Promise<unknown>) => Promise<void>;
 }) {
-  const [approved, setApproved] = useOptimistic(
-    job.wordingApproved,
-    (_previous, value: boolean) => value,
-  );
+  const [pendingApproval, setPendingApproval] = useState<boolean>();
   const [draft, setDraft] = useState<string[]>();
-  const strings = draft ?? job.thumbnailStrings ?? [];
-  if (!job.source.thumbnailTextApproved)
-    return <p className="help">Confirm the source thumbnail text first.</p>;
-  if (!job.source.thumbnailText?.length)
-    return (
-      <p className="help">No visible text. Image translation is not needed.</p>
-    );
-  if (!job.thumbnailStrings)
-    return (
-      <p className="help">
-        Generate the wording, then approve it before a paid image edit.
-      </p>
-    );
+  const strings =
+    draft ??
+    job.thumbnailStrings ??
+    job.source.thumbnailText?.map(() => '') ??
+    [];
+  if (!job.source.thumbnailTextApproved) return null;
+  if (!job.source.thumbnailText?.length) return null;
+
   return (
     <div className="wording-review">
       <h4>Exact thumbnail wording</h4>
@@ -219,21 +220,21 @@ function WordingReview({
               job.slots.thumbnail?.generation ?? '',
             )
           }
-          checked={approved && draft === undefined}
+          checked={
+            pendingApproval ?? (job.wordingApproved && draft === undefined)
+          }
           onChange={(e) => {
             const checked = e.target.checked;
-            startTransition(async () => {
-              setApproved(checked);
-              await onAction(async () => {
-                await command({
-                  type: 'wording',
-                  jobId: job.id,
-                  strings,
-                  approved: checked,
-                });
-                setDraft(undefined);
+            setPendingApproval(checked);
+            void onAction(async () => {
+              await command({
+                type: 'wording',
+                jobId: job.id,
+                strings,
+                approved: checked,
               });
-            });
+              setDraft(undefined);
+            }).finally(() => setPendingApproval(undefined));
           }}
         />
         Use these exact words in the image
@@ -246,8 +247,12 @@ function ThumbnailReview({
   slot,
   disabled,
   onAction,
+  local,
+  authuser,
 }: {
   job: Job;
+  local: boolean;
+  authuser?: string;
   slot: Slot;
   disabled: boolean;
   onAction: (fn: () => Promise<unknown>) => Promise<void>;
@@ -278,10 +283,6 @@ function ThumbnailReview({
       )}
       {slot.generation === 'generated' && (
         <>
-          <p className="help">
-            Check the text, faces, colours and composition. AI edits can change
-            more than words.
-          </p>
           <div className="field-actions">
             <button
               className="text-button"
@@ -326,19 +327,21 @@ function ThumbnailReview({
             </label>
           </div>
           <details className="regenerate">
-            <summary>Regenerate this thumbnail</summary>
-            <label>
-              Correction instruction
-              <textarea
-                rows={2}
-                value={correction}
-                onChange={(e) => setCorrection(e.target.value)}
-                placeholder="For example: keep the face unchanged and make the headline shorter"
-              />
-            </label>
-            <p className="help">
-              This starts a new paid edit from the same source image.
-            </p>
+            <summary>
+              {local ? 'Render updated thumbnail' : 'Regenerate this thumbnail'}
+            </summary>
+            {!local && (
+              <label>
+                Correction instruction
+                <textarea
+                  rows={2}
+                  value={correction}
+                  onChange={(e) => setCorrection(e.target.value)}
+                  placeholder="For example: keep the face unchanged and make the headline shorter"
+                />
+              </label>
+            )}
+
             <button
               className="secondary"
               disabled={disabled}
@@ -353,7 +356,7 @@ function ThumbnailReview({
               }
             >
               <RefreshCw size={15} />
-              Queue a new edit
+              {local ? 'Queue local render' : 'Queue a new edit'}
             </button>
           </details>
         </>
@@ -362,7 +365,7 @@ function ThumbnailReview({
       {slot.application === 'needs-verification' && (
         <a
           className="text-button"
-          href={`https://studio.youtube.com/video/${job.videoId}/translations`}
+          href={`https://studio.youtube.com/video/${job.videoId}/translations${authuser === undefined ? '' : `?authuser=${encodeURIComponent(authuser)}`}`}
           target="_blank"
           rel="noreferrer"
         >
@@ -422,14 +425,17 @@ function SourceReview({
   disabled,
   onAction,
   withThumbnails,
+  layerMode,
+  template,
 }: {
   video: Video;
   disabled: boolean;
   withThumbnails: boolean;
+  layerMode: boolean;
+  template?: LayerTemplate;
   onAction: (fn: () => Promise<unknown>) => Promise<void>;
 }) {
   const [sourceText, setSourceText] = useState<string>();
-  const [extracted, setExtracted] = useState(false);
   const value =
     sourceText ??
     video.thumbnailText?.join('\n') ??
@@ -443,9 +449,14 @@ function SourceReview({
         Source · {languageName(video.sourceLanguage ?? 'und')}
       </h2>
       <h3 dir="auto">{video.title}</h3>
-      <p className="source-description" dir="auto">
-        {video.description || 'No source description.'}
-      </p>
+      {video.description && (
+        <details className="source-description-fold">
+          <summary>Original description</summary>
+          <p className="source-description" dir="auto">
+            {video.description}
+          </p>
+        </details>
+      )}
       {withThumbnails && (
         <>
           <h4>
@@ -462,7 +473,7 @@ function SourceReview({
             {video.thumbnailWidth
               ? `${video.thumbnailWidth} × ${video.thumbnailHeight}`
               : 'No cached source image'}
-            {poor ? ' · Choose a larger source for image edits.' : ''}
+            {poor ? ' · Low resolution' : ''}
           </p>
           <label className="file-button text-button">
             <ImagePlus size={16} />
@@ -488,93 +499,92 @@ function SourceReview({
               }}
             />
           </label>
-          <div className="source-wording">
-            <h4>Visible thumbnail text</h4>
-            <p className="help">
-              One text block per line. Correct it once for every language. Leave
-              blank when the image has no text.
-            </p>
-            <textarea
-              aria-label={`Source thumbnail text for ${video.title}`}
-              rows={3}
-              value={value}
+          {layerMode ? (
+            <LayerEditor
+              key={video.thumbnailAssetId}
+              video={video}
+              template={template}
               disabled={disabled}
-              dir="auto"
-              onChange={(e) => {
-                setSourceText(e.target.value);
-                setExtracted(false);
-              }}
+              onAction={onAction}
             />
-            {extracted && (
-              <p className="help">
-                Review the extracted text, then confirm it below.
-              </p>
-            )}
-            {video.extractionStatus === 'ambiguous' && (
-              <p className="component-error">
-                The paid extraction has an uncertain outcome. Check your
-                provider dashboard and enter the text manually.
-              </p>
-            )}
-            <div className="source-text-actions">
-              <button
-                className="text-button"
-                disabled={
-                  disabled ||
-                  !video.thumbnailAssetId ||
-                  ['ambiguous', 'submitting'].includes(
-                    video.extractionStatus ?? '',
-                  )
-                }
-                onClick={() =>
-                  void onAction(async () => {
-                    const strings = await command<string[]>({
-                      type: 'extract-text',
-                      videoId: video.id,
-                    });
-                    setSourceText(strings.join('\n'));
-                    setExtracted(true);
-                  })
-                }
-              >
-                <Sparkles size={14} />
-                {video.extractionStatus === 'generated'
-                  ? 'Use saved extraction'
-                  : 'Read with AI · paid'}
-              </button>
-              <button
-                className="secondary"
-                disabled={disabled || !video.thumbnailAssetId}
-                onClick={() =>
-                  void onAction(async () => {
-                    await command({
-                      type: 'source-text',
-                      videoId: video.id,
-                      strings: value
-                        .split('\n')
-                        .map((s) => s.trim())
-                        .filter(Boolean),
-                    });
-                    setSourceText(undefined);
-                    setExtracted(false);
-                  })
-                }
-              >
-                <Check size={15} />
-                {value.trim() ? 'Confirm source text' : 'Confirm no text'}
-              </button>
+          ) : (
+            <div className="source-wording">
+              <h4>Visible thumbnail text</h4>
+
+              <textarea
+                aria-label={`Source thumbnail text for ${video.title}`}
+                rows={3}
+                value={value}
+                disabled={disabled}
+                dir="auto"
+                onChange={(e) => {
+                  setSourceText(e.target.value);
+                }}
+              />
+
+              {video.extractionStatus === 'ambiguous' && (
+                <p className="component-error">
+                  The paid extraction has an uncertain outcome. Check your
+                  provider dashboard and enter the text manually.
+                </p>
+              )}
+              <div className="source-text-actions">
+                <button
+                  className="text-button"
+                  disabled={
+                    disabled ||
+                    !video.thumbnailAssetId ||
+                    ['ambiguous', 'submitting'].includes(
+                      video.extractionStatus ?? '',
+                    )
+                  }
+                  onClick={() =>
+                    void onAction(async () => {
+                      const strings = await command<string[]>({
+                        type: 'extract-text',
+                        videoId: video.id,
+                      });
+                      setSourceText(strings.join('\n'));
+                    })
+                  }
+                >
+                  <Sparkles size={14} />
+                  {video.extractionStatus === 'generated'
+                    ? 'Use saved extraction'
+                    : 'Read with AI · paid'}
+                </button>
+                <button
+                  className="secondary"
+                  disabled={disabled || !video.thumbnailAssetId}
+                  onClick={() =>
+                    void onAction(async () => {
+                      await command({
+                        type: 'source-text',
+                        videoId: video.id,
+                        strings: value
+                          .split('\n')
+                          .map((s) => s.trim())
+                          .filter(Boolean),
+                      });
+                      setSourceText(undefined);
+                    })
+                  }
+                >
+                  <Check size={15} />
+                  {value.trim() ? 'Confirm source text' : 'Confirm no text'}
+                </button>
+              </div>
+              {video.thumbnailTextApproved && sourceText === undefined && (
+                <span className="success-text">Confirmed</span>
+              )}
             </div>
-            {video.thumbnailTextApproved && sourceText === undefined && (
-              <p className="success-text">Source text confirmed.</p>
-            )}
-          </div>
+          )}
         </>
       )}
       <span className={`visibility ${video.visibility}`}>
         {video.visibility}
       </span>
       {video.scheduledAt && <p className="help">{video.scheduledAt}</p>}
-      <p className="help">Visibility and publication dates are never edited.</p>
     </aside>
   );
 }
@@ -586,10 +596,17 @@ export function Review() {
   const active = workspace.run.mode !== 'paused';
   const channels = [
     ...new Map(
-      workspace.videos.map((video) => [video.channelId, video.channelName]),
+      [...workspace.accounts, ...workspace.videos].map((video) => [
+        video.channelId,
+        video.channelName,
+      ]),
     ).entries(),
   ];
-  const channelId = channel || workspace.run.channelId || channels[0]?.[0];
+  const channelId =
+    channel ||
+    workspace.activeChannel ||
+    workspace.run.channelId ||
+    channels[0]?.[0];
   const prefs = workspace.preferences.find(
     (value) => value.channelId === channelId,
   );
@@ -626,18 +643,23 @@ export function Review() {
     <main className="review-page">
       <div className="page-heading review-heading">
         <div>
-          <h1>Review before it goes live.</h1>
-          <p>
-            Compare with the source, edit the wording, then approve each missing
-            component.
-          </p>
+          <h1>Review translations</h1>
         </div>
         {channels.length > 1 && (
           <label>
             Channel
             <select
               value={channelId}
-              onChange={(e) => setChannel(e.target.value)}
+              disabled={active || !!busy}
+              onChange={(e) => {
+                setChannel(e.target.value);
+                void action(() =>
+                  command({
+                    type: 'select-channel',
+                    channelId: e.target.value,
+                  }),
+                );
+              }}
             >
               {channels.map(([id, name]) => (
                 <option key={id} value={id}>
@@ -707,40 +729,35 @@ export function Review() {
               >
                 Download assets
               </DownloadButton>
-              <button
-                className="primary"
-                disabled={disabled || !approved}
-                onClick={() =>
-                  void action(() =>
-                    command({
-                      type: 'apply',
-                      jobIds: jobs.map((job) => job.id),
-                    }),
-                  )
-                }
-              >
-                Apply {approved || ''} approved <ArrowRight size={16} />
-              </button>
             </div>
           </div>
           {active && (
             <Notice>
               {workspace.run.mode === 'generate'
-                ? 'Generation is running.'
-                : 'Application is running. Keep the dedicated Studio working tab visible.'}{' '}
+                ? 'Generating…'
+                : 'Applying… Keep Studio visible.'}{' '}
               {workspace.run.requestsUsed}/{workspace.run.requestLimit} new paid
-              requests. Pausing stops new submissions.
+              requests.
             </Notice>
           )}
-          {!active && workspace.run.reason && (
-            <p className="run-reason" role="status">
-              {workspace.run.reason}
-            </p>
-          )}
+          {!active &&
+            workspace.run.reason &&
+            !workspace.run.reason.startsWith('Generation finished') &&
+            !workspace.run.reason.startsWith('Approved items') && (
+              <p className="run-reason" role="status">
+                {workspace.run.reason}
+              </p>
+            )}
           {videos.map((video) => (
             <section key={video.id} className="video-review">
               <SourceReview
                 video={video}
+                layerMode={
+                  workspace.settings.provider.imageProvider === 'layerize'
+                }
+                template={workspace.templates.find(
+                  (t) => t.id === video.thumbnailAssetId,
+                )}
                 withThumbnails={jobs.some(
                   (job) =>
                     job.videoId === video.id &&
@@ -774,6 +791,15 @@ export function Review() {
                           <div key={component}>
                             {component === 'thumbnail' ? (
                               <ThumbnailReview
+                                authuser={
+                                  workspace.accounts.find(
+                                    (a) => a.channelId === job.channelId,
+                                  )?.authuser
+                                }
+                                local={
+                                  workspace.settings.provider.imageProvider ===
+                                  'layerize'
+                                }
                                 job={job}
                                 slot={slot}
                                 disabled={disabled}
@@ -817,11 +843,6 @@ export function Review() {
               Apply {approved || ''} approved <ArrowRight size={16} />
             </button>
           </div>
-          <p className="review-boundary">
-            Applying rechecks Studio and preserves existing translations.
-            Thumbnails stay “Needs verification” until their saved appearance
-            can be checked. Audio is unchanged.
-          </p>
         </>
       )}
     </main>

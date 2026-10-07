@@ -13,3 +13,9 @@ FIRST VIEWPORT: Product header and channel context above a workflow strip. A cur
 FORM: A working list and translation desk, chosen from the supplied workflow. The user delegated routine design decisions and cited OpenPost as a reference.
 
 FINISH: unreviewed and undocumented is unfinished.
+
+## Simplification
+
+The side panel is a channel list with saved languages, filters and one next action. Remove the hero, workflow strip, component summary and setup lectures. Settings shows connection and language choices first; models, compatibility, billing limits, glossary and backup are disclosures. Review retains source comparison and approvals but removes repeated advice and the duplicate apply button. Errors and paid retry acknowledgments remain at the affected action.
+
+Account selection belongs above the video list when more than one channel is connected. Thumbnail mode is a basic setting; model and quality tuning stay in Advanced. Layerize preparation and source preview sit in the source column; box geometry and typography stay under Adjust layout. Local renders use the same wording and image review flow.

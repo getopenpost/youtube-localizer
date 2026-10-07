@@ -27,3 +27,11 @@ Switch accounts or channels in the working tab. Application must pause. Open an 
 Keep before/after screenshots of the schedule and language dialogs, provider dashboard submission counts, the persisted Fal request ID, and the extension's resulting statuses. Do not include API keys, signed media URLs or private creator data in the public repository.
 
 Only record a live pass after completing the entire gate. Local fixtures are separate evidence.
+
+## Additional provider and account checks
+
+Connect two Studio accounts in separate tabs. Give them different target languages and switch between them. Verify preflight, application and verification links retain the observed account selector. Switch the account in a bound working tab during a batch and confirm no subsequent write occurs.
+
+Run one GPT Image 2.5 Sunburst streamed edit and one Ideogram 4.5 Edit at very_low quality with high precision. Confirm model names and counts in each provider dashboard. Interrupt a streamed OpenAI request and confirm it is ambiguous rather than automatically repeated.
+
+Run one Layerize preparation on a real thumbnail. Compare the clean background and extracted layout, correct boxes and approve. Enter German and Arabic wording manually and render locally. Confirm no further image or text request occurs. Restart Chrome, restore keys if needed, and reuse the cached template. Change layout and confirm old images cannot be approved or applied until rendered again. Check decorative lettering and a long translation; correct the layout instead of silently clipping. Export/import a backup and verify the template is present but unapproved.

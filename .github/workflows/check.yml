@@ -20,7 +20,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: youtube-localizer
-          path: artifacts/youtube-localizer-0.1.0.zip
+          path: artifacts/youtube-localizer-*.zip
       - uses: actions/upload-artifact@v4
         if: failure()
         with:

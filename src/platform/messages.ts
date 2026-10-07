@@ -1,3 +1,4 @@
+import { layerSchema } from '../layers/model';
 import { z } from 'zod';
 import {
   componentSchema,
@@ -5,7 +6,20 @@ import {
   settingsSchema,
 } from '../core/model';
 export const commandSchema = z.discriminatedUnion('type', [
-  z.object({ type: z.literal('discover') }),
+  z.object({
+    type: z.literal('prepare-template'),
+    videoId: z.string(),
+    acknowledged: z.boolean().default(false),
+  }),
+  z.object({
+    type: z.literal('save-template'),
+    id: z.string(),
+    layers: z.array(layerSchema).max(30),
+    approved: z.boolean(),
+  }),
+  z.object({ type: z.literal('retry-template'), id: z.string() }),
+  z.object({ type: z.literal('discover'), channelId: z.string().optional() }),
+  z.object({ type: z.literal('select-channel'), channelId: z.string() }),
   z.object({
     type: z.literal('preflight'),
     channelId: z.string(),

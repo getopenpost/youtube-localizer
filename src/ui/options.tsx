@@ -1,38 +1,32 @@
 import { useState, useEffect } from 'react';
-import {
-  KeyRound,
-  Check,
-  ArrowUpRight,
-  Search,
-  Download,
-  Upload,
-} from 'lucide-react';
+import { Search, ArrowUpRight, Upload } from 'lucide-react';
 import { languages, languageName } from '../core/languages';
 import {
   preferencesSchema,
   settingsSchema,
-  type Component,
   type Settings,
+  type Component,
 } from '../core/model';
 import { command } from '../platform/messages';
 import {
   credentials,
-  forgetCredentials,
-  providerOrigins,
   saveCredentials,
+  forgetCredentials,
   providerBase,
+  providerOrigins,
 } from '../platform/credentials';
-import { exportArchive, importArchive } from '../core/archive';
 import { repository } from '../core/storage';
+import { exportArchive, importArchive } from '../core/archive';
 import { useWorkspace } from './use-workspace';
-import { DownloadButton, Notice, isExtension } from './shared';
+import { Notice, DownloadButton, isExtension } from './shared';
 export function Options() {
   const { workspace, refresh, storageError } = useWorkspace();
   const [draft, setDraft] = useState<Settings>();
   const settings = draft ?? workspace.settings;
-  const [channelId, setChannelId] = useState('');
+  const [selectedChannel, setSelectedChannel] = useState('');
   const channel =
-    channelId ||
+    selectedChannel ||
+    workspace.activeChannel ||
     workspace.run.channelId ||
     workspace.videos[0]?.channelId ||
     '';
@@ -45,54 +39,64 @@ export function Options() {
       : (existing ?? preferencesSchema.parse({ channelId: channel }));
   const [query, setQuery] = useState('');
   const [textKey, setTextKey] = useState('');
+  const [imageKey, setImageKey] = useState('');
   const [falKey, setFalKey] = useState('');
-  const [savedKeys, setSavedKeys] = useState({ text: false, fal: false });
-  const [busy, setBusy] = useState('');
-  const [message, setMessage] = useState('');
+  const [saved, setSaved] = useState({ text: false, image: false, fal: false });
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [message, setMessage] = useState('');
   useEffect(() => {
     if (isExtension())
       void credentials().then((value) =>
-        setSavedKeys({ text: !!value.textKey, fal: !!value.falKey }),
+        setSaved({
+          text: !!value.textKey,
+          image: !!value.imageKey,
+          fal: !!value.falKey,
+        }),
       );
   }, []);
-  const update = (value: Partial<Settings>) =>
-    setDraft({ ...settings, ...value });
-  const provider = (value: Partial<Settings['provider']>) =>
-    update({ provider: { ...settings.provider, ...value } });
-  async function action(label: string, fn: () => Promise<unknown>) {
-    setBusy(label);
+  const provider = (values: Partial<Settings['provider']>) =>
+    setDraft({ ...settings, provider: { ...settings.provider, ...values } });
+  async function action(fn: () => Promise<unknown>) {
+    setBusy(true);
     setError('');
     setMessage('');
     try {
       await fn();
       await refresh();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'The action failed.');
+      setError(e instanceof Error ? e.message : 'Could not save.');
     } finally {
-      setBusy('');
+      setBusy(false);
     }
   }
   async function save() {
     if (!isExtension())
-      throw new Error(
-        'This is a browser preview. Load the extension in Chrome to save provider credentials.',
-      );
+      throw new Error('Load the extension to save connections.');
     const parsed = settingsSchema.parse(settings);
     parsed.provider.baseUrl = providerBase(parsed.provider.baseUrl);
-    const granted = await chrome.permissions.request({
-      origins: providerOrigins(
-        parsed.provider.baseUrl,
-        !!falKey || savedKeys.fal,
-      ),
-    });
-    if (!granted)
-      throw new Error(
-        'Provider access was not granted. Your settings have not been saved.',
-      );
+    const origins = providerOrigins(
+      parsed.provider.baseUrl,
+      parsed.provider.imageProvider !== 'openai',
+    );
+    if (parsed.provider.imageProvider === 'openai')
+      origins.push('https://api.openai.com/*');
+    if (!(await chrome.permissions.request({ origins: [...new Set(origins)] })))
+      throw new Error('Provider access was declined.');
     const current = await credentials();
+    const changedEndpoint =
+      parsed.provider.baseUrl !== workspace.settings.provider.baseUrl ||
+      parsed.provider.protocol !== workspace.settings.provider.protocol;
+    if (
+      changedEndpoint &&
+      !textKey &&
+      current.textKey &&
+      parsed.provider.auth !== 'none'
+    )
+      throw new Error('Enter a key for the new provider.');
     const keys = {
       textKey: textKey || current.textKey,
+      imageKey: imageKey || current.imageKey,
       falKey: falKey || current.falKey,
     };
     await command({ type: 'settings', settings: parsed });
@@ -102,64 +106,48 @@ export function Options() {
         type: 'preferences',
         preferences: preferencesSchema.parse(prefs),
       });
-    setSavedKeys({ text: !!keys.textKey, fal: !!keys.falKey });
     setTextKey('');
+    setImageKey('');
     setFalKey('');
+    setSaved({
+      text: !!keys.textKey,
+      image: !!keys.imageKey,
+      fal: !!keys.falKey,
+    });
     setDraft(undefined);
     setPreferenceDraft(undefined);
-    setMessage(
-      'Settings saved. Your keys are available only to this extension.',
-    );
+    setMessage('Saved');
   }
   const channels = [
     ...new Map(
-      workspace.videos.map((video) => [video.channelId, video.channelName]),
+      [...workspace.accounts, ...workspace.videos].map((v) => [
+        v.channelId,
+        v.channelName,
+      ]),
     ).entries(),
   ];
-  const filtered = languages.filter(
-    (language) =>
-      language.code !== prefs.sourceLanguage &&
-      `${language.name} ${language.code}`
-        .toLowerCase()
-        .includes(query.toLowerCase()),
-  );
+  const disabled = busy || workspace.run.mode !== 'paused';
   return (
-    <main className="settings-page">
-      <div className="page-heading">
-        <h1>
-          Your providers.
-          <br />
-          Your workflow.
-        </h1>
-        <p>
-          Bring API access from your provider. A ChatGPT or Claude subscription
-          does not include API usage.
-        </p>
-      </div>
+    <main className="settings-page simple-settings">
+      <h1>Settings</h1>
       {storageError && <Notice error>{storageError}</Notice>}
       {error && <Notice error>{error}</Notice>}
       {message && <Notice>{message}</Notice>}
-      {workspace.run.mode !== 'paused' && (
-        <Notice>
-          Pause the batch before changing preferences or provider settings.
-        </Notice>
-      )}
       <form
-        onSubmit={(event) => {
-          event.preventDefault();
-          void action('Saving settings', save);
+        onSubmit={(e) => {
+          e.preventDefault();
+          void action(save);
         }}
       >
-        <fieldset disabled={workspace.run.mode !== 'paused' || !!busy}>
-          <legend>Text provider</legend>
-          <p>Titles, descriptions and thumbnail wording use this provider.</p>
+        <fieldset disabled={disabled}>
+          <legend>Connection</legend>
           <div className="form-grid">
             <label>
-              Provider
+              Text provider
               <select
                 value={settings.provider.preset}
-                onChange={(event) => {
-                  const preset = event.target
+                onChange={(e) => {
+                  const preset = e.target
                     .value as Settings['provider']['preset'];
                   provider({
                     preset,
@@ -167,171 +155,98 @@ export function Options() {
                     baseUrl:
                       preset === 'anthropic'
                         ? 'https://api.anthropic.com/v1'
-                        : preset === 'openai'
-                          ? 'https://api.openai.com/v1'
-                          : settings.provider.baseUrl,
+                        : 'https://api.openai.com/v1',
                     model:
                       preset === 'anthropic'
                         ? 'claude-sonnet-5-5'
-                        : preset === 'openai'
-                          ? 'gpt-4.1-mini'
-                          : settings.provider.model,
+                        : 'gpt-4.1-mini',
                   });
                 }}
               >
                 <option value="openai">OpenAI</option>
                 <option value="anthropic">Anthropic</option>
-                <option value="custom">OpenAI-compatible endpoint</option>
+                <option value="custom">Custom endpoint</option>
               </select>
             </label>
             <label>
-              Model
+              API key
               <input
-                required
-                value={settings.provider.model}
-                onChange={(e) => provider({ model: e.target.value })}
+                type="password"
+                autoComplete="off"
+                value={textKey}
+                onChange={(e) => setTextKey(e.target.value)}
+                placeholder={
+                  saved.text
+                    ? 'Saved. Leave blank to keep.'
+                    : 'Paste your API key'
+                }
               />
             </label>
-            <label className="full-width">
-              API key
-              <span className="input-icon">
-                <KeyRound size={16} />
+          </div>
+          <label>
+            Thumbnails
+            <select
+              value={settings.provider.imageProvider}
+              onChange={(e) =>
+                provider({
+                  imageProvider: e.target
+                    .value as Settings['provider']['imageProvider'],
+                })
+              }
+            >
+              <option value="openai">GPT Image 2.5</option>
+              <option value="fal">Fal image edit</option>
+              <option value="layerize">Ideogram editable text</option>
+            </select>
+          </label>
+          {settings.provider.imageProvider !== 'openai' && (
+            <label>
+              Fal key
+              <input
+                type="password"
+                autoComplete="off"
+                value={falKey}
+                onChange={(e) => setFalKey(e.target.value)}
+                placeholder={
+                  saved.fal ? 'Saved. Leave blank to keep.' : 'Fal API key'
+                }
+              />
+            </label>
+          )}
+          {settings.provider.imageProvider === 'openai' &&
+            (settings.provider.protocol !== 'openai' ||
+              settings.provider.baseUrl.replace(/\/$/, '') !==
+                'https://api.openai.com/v1') && (
+              <label>
+                OpenAI key for images
                 <input
                   type="password"
-                  autoComplete="off"
+                  value={imageKey}
+                  onChange={(e) => setImageKey(e.target.value)}
                   placeholder={
-                    savedKeys.text
-                      ? 'A key is saved. Leave blank to keep it.'
-                      : 'Paste your provider API key'
+                    saved.image
+                      ? 'Saved. Leave blank to keep.'
+                      : 'OpenAI API key'
                   }
-                  value={textKey}
-                  onChange={(e) => setTextKey(e.target.value)}
                 />
-              </span>
-            </label>
-          </div>
-          <details className="advanced">
-            <summary>Endpoint & compatibility</summary>
-            <label>
-              Base URL
-              <input
-                type="url"
-                required
-                value={settings.provider.baseUrl}
-                onChange={(e) => provider({ baseUrl: e.target.value })}
-              />
-            </label>
-            <label>
-              Protocol
-              <select
-                value={settings.provider.protocol}
-                onChange={(e) =>
-                  provider({
-                    protocol: e.target.value as 'openai' | 'anthropic',
-                  })
-                }
-              >
-                <option value="openai">OpenAI Chat Completions</option>
-                <option value="anthropic">Anthropic Messages</option>
-              </select>
-            </label>
-            <label>
-              Authentication
-              <select
-                value={settings.provider.auth}
-                onChange={(e) =>
-                  provider({ auth: e.target.value as 'bearer' | 'none' })
-                }
-              >
-                <option value="bearer">API key</option>
-                <option value="none">No authentication, local server</option>
-              </select>
-            </label>
-            <p>
-              Custom domains are requested only when you save them. HTTP is
-              supported on localhost only.
-            </p>
-          </details>
-          <label className="checkbox-label">
-            <input
-              type="checkbox"
-              checked={settings.provider.vision}
-              onChange={(e) => provider({ vision: e.target.checked })}
-            />
-            This model can read thumbnail images
-          </label>
-          <p className="help">
-            Without vision, enter thumbnail text manually in review.
-          </p>
+              </label>
+            )}
         </fieldset>
-        <fieldset disabled={workspace.run.mode !== 'paused' || !!busy}>
-          <legend>
-            Thumbnail provider <span className="optional">Optional</span>
-          </legend>
-          <p>
-            Fal edits the same source image for each language. Text-only batches
-            do not need a Fal key.
-          </p>
-          <label>
-            Fal API key
-            <input
-              type="password"
-              autoComplete="off"
-              placeholder={
-                savedKeys.fal
-                  ? 'A Fal key is saved. Leave blank to keep it.'
-                  : 'Paste your Fal API key'
-              }
-              value={falKey}
-              onChange={(e) => setFalKey(e.target.value)}
-            />
-          </label>
-          <div className="form-grid">
-            <label>
-              Editing model
-              <select
-                value={settings.provider.falModel}
-                onChange={(e) =>
-                  provider({
-                    falModel: e.target
-                      .value as Settings['provider']['falModel'],
-                  })
-                }
-              >
-                <option value="fal-ai/nano-banana-pro/edit">
-                  Nano Banana Pro
-                </option>
-                <option value="fal-ai/nano-banana/edit">Nano Banana</option>
-              </select>
-            </label>
-            <label>
-              Generation resolution
-              <select
-                value={settings.provider.imageResolution}
-                onChange={(e) =>
-                  provider({ imageResolution: e.target.value as '1K' | '2K' })
-                }
-              >
-                <option value="1K">1K</option>
-                <option value="2K">2K</option>
-              </select>
-            </label>
-          </div>
-          <p className="help">
-            Uploads are prepared as 1280 × 720 JPEGs. You approve the wording
-            before image generation. Review faces and composition before
-            uploading.
-          </p>
-        </fieldset>
-        <fieldset disabled={workspace.run.mode !== 'paused' || !!busy}>
-          <legend>Channel preferences</legend>
-          {channels.length ? (
+        <fieldset disabled={disabled}>
+          <legend>Languages</legend>
+          {channels.length > 1 && (
             <label>
               Channel
               <select
                 value={channel}
                 onChange={(e) => {
-                  setChannelId(e.target.value);
+                  setSelectedChannel(e.target.value);
+                  void action(() =>
+                    command({
+                      type: 'select-channel',
+                      channelId: e.target.value,
+                    }),
+                  );
                   setPreferenceDraft(undefined);
                 }}
               >
@@ -342,16 +257,11 @@ export function Options() {
                 ))}
               </select>
             </label>
-          ) : (
-            <Notice>
-              Read a Studio page from the side panel first. Source language,
-              targets and glossary are saved separately for each channel.
-            </Notice>
           )}
-          {channel && (
+          {channel ? (
             <>
               <label>
-                Fallback source language
+                Source language
                 <select
                   value={prefs.sourceLanguage}
                   onChange={(e) =>
@@ -364,187 +274,336 @@ export function Options() {
                     })
                   }
                 >
-                  {languages.map((language) => (
-                    <option key={language.code} value={language.code}>
-                      {language.name}
+                  {languages.map((lang) => (
+                    <option key={lang.code} value={lang.code}>
+                      {lang.name}
                     </option>
                   ))}
                 </select>
               </label>
-              <p className="help">
-                The video’s declared language takes priority. This confirmed
-                fallback is used when Studio does not expose one.
-              </p>
               <div className="selected-languages">
                 {prefs.targetLanguages.map((code) => (
                   <button
                     type="button"
                     key={code}
+                    aria-label={`Remove ${languageName(code)}`}
                     onClick={() =>
                       setPreferenceDraft({
                         ...prefs,
                         targetLanguages: prefs.targetLanguages.filter(
-                          (value) => value !== code,
+                          (c) => c !== code,
                         ),
                       })
                     }
-                    aria-label={`Remove ${languageName(code)}`}
                   >
-                    {languageName(code)} <span aria-hidden="true">×</span>
+                    {languageName(code)} ×
                   </button>
                 ))}
-                {!prefs.targetLanguages.length && (
-                  <p>Choose at least one target language.</p>
-                )}
               </div>
               <label className="search-box">
                 <Search size={16} />
                 <input
+                  aria-label="Search target languages"
+                  placeholder="Add languages"
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Search YouTube languages"
-                  aria-label="Search target languages"
                 />
               </label>
-              <div className="language-picker" aria-label="Target languages">
-                {filtered.map((language) => (
-                  <label key={language.code} className="checkbox-label">
-                    <input
-                      type="checkbox"
-                      checked={prefs.targetLanguages.includes(language.code)}
-                      onChange={(e) =>
-                        setPreferenceDraft({
-                          ...prefs,
-                          targetLanguages: e.target.checked
-                            ? [...prefs.targetLanguages, language.code]
-                            : prefs.targetLanguages.filter(
-                                (value) => value !== language.code,
-                              ),
-                        })
-                      }
-                    />
-                    {language.name}
-                  </label>
-                ))}
-              </div>
-              <p className="help">
-                Codes come from YouTube’s picker. Preflight checks availability
-                for each video. Unavailable languages stay visible and block
-                generation.
-              </p>
-              <div className="component-picker">
-                <span>Components</span>
-                {(['title', 'description', 'thumbnail'] as Component[]).map(
-                  (component) => (
-                    <label key={component} className="checkbox-label">
+              <div className="language-picker">
+                {languages
+                  .filter(
+                    (lang) =>
+                      lang.code !== prefs.sourceLanguage &&
+                      `${lang.name} ${lang.code}`
+                        .toLowerCase()
+                        .includes(query.toLowerCase()),
+                  )
+                  .map((lang) => (
+                    <label className="checkbox-label" key={lang.code}>
                       <input
                         type="checkbox"
-                        checked={prefs.components.includes(component)}
+                        checked={prefs.targetLanguages.includes(lang.code)}
+                        onChange={(e) =>
+                          setPreferenceDraft({
+                            ...prefs,
+                            targetLanguages: e.target.checked
+                              ? [...prefs.targetLanguages, lang.code]
+                              : prefs.targetLanguages.filter(
+                                  (c) => c !== lang.code,
+                                ),
+                          })
+                        }
+                      />
+                      {lang.name}
+                    </label>
+                  ))}
+              </div>
+              <div className="component-picker">
+                {(['title', 'description', 'thumbnail'] as Component[]).map(
+                  (c) => (
+                    <label key={c} className="checkbox-label">
+                      <input
+                        type="checkbox"
+                        checked={prefs.components.includes(c)}
                         onChange={(e) =>
                           setPreferenceDraft({
                             ...prefs,
                             components: e.target.checked
-                              ? [...prefs.components, component]
-                              : prefs.components.filter((c) => c !== component),
+                              ? [...prefs.components, c]
+                              : prefs.components.filter((x) => x !== c),
                           })
                         }
                       />
-                      {component === 'title'
+                      {c === 'title'
                         ? 'Titles'
-                        : component === 'description'
+                        : c === 'description'
                           ? 'Descriptions'
                           : 'Thumbnails'}
                     </label>
                   ),
                 )}
               </div>
+            </>
+          ) : (
+            <p className="help">
+              Open a channel in Studio to set its languages.
+            </p>
+          )}
+        </fieldset>
+        <details className="settings-advanced">
+          <summary>Advanced</summary>
+          <fieldset disabled={disabled}>
+            <div className="form-grid">
               <label>
-                Glossary & phrases to preserve
+                Text model
+                <input
+                  value={settings.provider.model}
+                  onChange={(e) => provider({ model: e.target.value })}
+                />
+              </label>
+              <label>
+                Base URL
+                <input
+                  type="url"
+                  value={settings.provider.baseUrl}
+                  onChange={(e) => provider({ baseUrl: e.target.value })}
+                />
+              </label>
+              <label>
+                Protocol
+                <select
+                  value={settings.provider.protocol}
+                  onChange={(e) =>
+                    provider({
+                      protocol: e.target.value as 'openai' | 'anthropic',
+                    })
+                  }
+                >
+                  <option value="openai">Chat Completions</option>
+                  <option value="anthropic">Messages</option>
+                </select>
+              </label>
+              <label>
+                Authentication
+                <select
+                  value={settings.provider.auth}
+                  onChange={(e) =>
+                    provider({ auth: e.target.value as 'bearer' | 'none' })
+                  }
+                >
+                  <option value="bearer">API key</option>
+                  <option value="none">None</option>
+                </select>
+              </label>
+              {settings.provider.imageProvider === 'openai' ? (
+                <>
+                  <label>
+                    Image model
+                    <select
+                      value={settings.provider.imageModel}
+                      onChange={(e) =>
+                        provider({
+                          imageModel: e.target
+                            .value as Settings['provider']['imageModel'],
+                        })
+                      }
+                    >
+                      <option value="gpt-image-2.5-sunburst">
+                        GPT Image 2.5 Sunburst
+                      </option>
+                      <option value="gpt-image-2.5-flare">
+                        GPT Image 2.5 Flare
+                      </option>
+                    </select>
+                  </label>
+                  <label>
+                    Image quality
+                    <select
+                      value={settings.provider.imageQuality}
+                      onChange={(e) =>
+                        provider({
+                          imageQuality: e.target
+                            .value as Settings['provider']['imageQuality'],
+                        })
+                      }
+                    >
+                      {['auto', 'low', 'medium', 'high', 'xhigh', 'max'].map(
+                        (v) => (
+                          <option key={v} value={v}>
+                            {v}
+                          </option>
+                        ),
+                      )}
+                    </select>
+                  </label>
+                </>
+              ) : (
+                <>
+                  {settings.provider.imageProvider === 'fal' && (
+                    <>
+                      <label>
+                        Fal model
+                        <select
+                          value={settings.provider.falModel}
+                          onChange={(e) =>
+                            provider({
+                              falModel: e.target
+                                .value as Settings['provider']['falModel'],
+                            })
+                          }
+                        >
+                          <option value="ideogram/v4.5/edit">
+                            Ideogram 4.5 Edit
+                          </option>
+                          <option value="fal-ai/nano-banana-pro/edit">
+                            Nano Banana Pro
+                          </option>
+                          <option value="fal-ai/nano-banana/edit">
+                            Nano Banana
+                          </option>
+                        </select>
+                      </label>
+                      {settings.provider.falModel === 'ideogram/v4.5/edit' ? (
+                        <>
+                          <label>
+                            Ideogram quality
+                            <select
+                              value={settings.provider.ideogramQuality}
+                              onChange={(e) =>
+                                provider({
+                                  ideogramQuality: e.target
+                                    .value as Settings['provider']['ideogramQuality'],
+                                })
+                              }
+                            >
+                              {['very_low', 'low', 'medium', 'high'].map(
+                                (v) => (
+                                  <option key={v} value={v}>
+                                    {v.replace('_', ' ')}
+                                  </option>
+                                ),
+                              )}
+                            </select>
+                          </label>
+                          <label>
+                            Edit precision
+                            <select
+                              value={settings.provider.ideogramPrecision}
+                              onChange={(e) =>
+                                provider({
+                                  ideogramPrecision: e.target.value as
+                                    'regular' | 'high',
+                                })
+                              }
+                            >
+                              <option value="high">
+                                High · preserve other pixels
+                              </option>
+                              <option value="regular">Regular</option>
+                            </select>
+                          </label>
+                        </>
+                      ) : (
+                        <label>
+                          Resolution
+                          <select
+                            value={settings.provider.imageResolution}
+                            onChange={(e) =>
+                              provider({
+                                imageResolution: e.target.value as '1K' | '2K',
+                              })
+                            }
+                          >
+                            <option value="1K">1K</option>
+                            <option value="2K">2K</option>
+                          </select>
+                        </label>
+                      )}
+                    </>
+                  )}
+                </>
+              )}
+            </div>
+            <label className="checkbox-label">
+              <input
+                type="checkbox"
+                checked={settings.provider.vision}
+                onChange={(e) => provider({ vision: e.target.checked })}
+              />
+              Text model supports images
+            </label>
+            <label className="checkbox-label">
+              <input
+                type="checkbox"
+                checked={settings.rememberCredentials}
+                onChange={(e) =>
+                  setDraft({
+                    ...settings,
+                    rememberCredentials: e.target.checked,
+                  })
+                }
+              />
+              Remember keys on this device
+            </label>
+            <label>
+              Requests per run
+              <input
+                type="number"
+                min={1}
+                max={1000}
+                value={settings.provider.requestLimit}
+                onChange={(e) =>
+                  provider({ requestLimit: Number(e.target.value) })
+                }
+              />
+            </label>
+            {channel && (
+              <label>
+                Glossary
                 <textarea
-                  rows={4}
+                  rows={3}
                   value={prefs.glossary}
                   onChange={(e) =>
                     setPreferenceDraft({ ...prefs, glossary: e.target.value })
                   }
-                  placeholder="Names, brands, phrases and preferred translations"
-                  maxLength={6000}
                 />
               </label>
-            </>
-          )}
-        </fieldset>
-        <fieldset disabled={workspace.run.mode !== 'paused' || !!busy}>
-          <legend>Credentials & request limit</legend>
-          <label className="checkbox-label">
-            <input
-              type="checkbox"
-              checked={settings.rememberCredentials}
-              onChange={(e) =>
-                update({ rememberCredentials: e.target.checked })
-              }
-            />
-            Remember keys on this device
-          </label>
-          <p className="help">
-            Default: this browser session only. Remembered keys use local
-            browser storage, not an OS secret vault. Keys never use Chrome Sync
-            and are excluded from backups.
-          </p>
-          <label>
-            Maximum new paid requests per run
-            <input
-              type="number"
-              min="1"
-              max="1000"
-              value={settings.provider.requestLimit}
-              onChange={(e) =>
-                provider({ requestLimit: Number(e.target.value) })
-              }
-            />
-          </label>
-          <p className="help">
-            This is a request count, not a price estimate. Provider charges
-            vary. Pausing stops new requests; submitted requests can continue.
-          </p>
-        </fieldset>
+            )}
+          </fieldset>
+        </details>
         <div className="save-row">
-          <button
-            className="primary"
-            type="submit"
-            disabled={workspace.run.mode !== 'paused' || !!busy}
-          >
-            <Check size={17} />
-            {busy || 'Save settings'}
-          </button>
-          <button
-            type="button"
-            className="text-button"
-            disabled={!!busy}
-            onClick={() =>
-              void action('Forgetting keys', async () => {
-                if (isExtension()) await forgetCredentials();
-                setSavedKeys({ text: false, fal: false });
-                setMessage('Provider keys removed from this extension.');
-              })
-            }
-          >
-            Forget saved keys
+          <button className="primary" disabled={disabled}>
+            {busy ? 'Saving…' : 'Save'}
           </button>
         </div>
       </form>
-      <section className="backup-section">
-        <h2>Keep a portable backup</h2>
-        <p>
-          Export history and images before uninstalling. Imports merge cached
-          work, preserve existing local records, and require a fresh Studio
-          check before applying.
-        </p>
+      <details className="settings-advanced">
+        <summary>Backup & keys</summary>
         <div className="backup-actions">
           <DownloadButton
             blob={() => exportArchive(repository)}
             name="youtube-localizer-backup.zip"
           >
-            <Download size={16} />
             Export backup
           </DownloadButton>
           <label className="file-button secondary">
@@ -552,37 +611,41 @@ export function Options() {
             Import backup
             <input
               type="file"
-              accept=".zip,application/zip"
-              disabled={workspace.run.mode !== 'paused' || !!busy}
+              accept=".zip"
+              disabled={disabled}
               onChange={(e) => {
                 const file = e.target.files?.[0];
                 if (file)
-                  void action('Importing backup', async () => {
-                    await navigator.locks.request('localizer-coordinator', () =>
+                  void action(() =>
+                    navigator.locks.request('localizer-coordinator', () =>
                       importArchive(repository, file),
-                    );
-                    setMessage(
-                      'Backup imported as a cache. Run preflight again before continuing.',
-                    );
-                  });
+                    ),
+                  );
                 e.target.value = '';
               }}
             />
           </label>
+          <button
+            className="text-button"
+            onClick={() =>
+              void action(async () => {
+                await forgetCredentials();
+                setSaved({ text: false, image: false, fal: false });
+              })
+            }
+          >
+            Forget keys
+          </button>
         </div>
-      </section>
-      <section className="openpost-section">
-        <h2>More of your workflow, in OpenPost.</h2>
-        <p>Plan content, edit media and publish across your social accounts.</p>
-        <a
-          className="secondary"
-          href="https://openpo.st/?utm_source=youtube-localizer&utm_medium=extension&utm_campaign=onboarding"
-          target="_blank"
-          rel="noreferrer"
-        >
-          Explore OpenPost <ArrowUpRight size={16} />
-        </a>
-      </section>
+      </details>
+      <a
+        className="settings-openpost"
+        href="https://openpo.st/?utm_source=youtube-localizer"
+        target="_blank"
+        rel="noreferrer"
+      >
+        Explore OpenPost <ArrowUpRight size={14} />
+      </a>
     </main>
   );
 }

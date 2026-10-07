@@ -10,6 +10,7 @@ import {
   type StudioContext,
   type Video,
 } from '../core/model';
+import { renderedLayoutIsCurrent } from '../layers/current';
 import { z } from 'zod';
 import type { Repository } from '../core/storage';
 import { dataUrl, fetchImage } from '../platform/images';
@@ -25,42 +26,97 @@ export class StudioBridge {
       );
     return result.data;
   }
-  async discover(): Promise<StudioContext> {
-    const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-    const tab = tabs[0];
-    if (!tab?.id || !tab.url?.startsWith('https://studio.youtube.com/'))
-      throw new Error(
-        'Open YouTube Studio and select its tab, then refresh the video list.',
-      );
-    return studioContextSchema.parse(
-      await this.send(tab.id, { type: 'discover' }),
+  async discover(channelId?: string): Promise<StudioContext> {
+    const account = channelId ? await this.repo.account(channelId) : undefined;
+    const tabs = await chrome.tabs.query(
+      channelId ? {} : { active: true, currentWindow: true },
+    );
+    const candidates = tabs.filter(
+      (tab) =>
+        tab.id &&
+        tab.url?.startsWith('https://studio.youtube.com/') &&
+        (!account ||
+          new URL(tab.url!).searchParams.get('authuser') ===
+            (account.authuser ?? null)),
+    );
+    for (const tab of candidates.sort(
+      (a, b) =>
+        Number(b.id === account?.tabId) - Number(a.id === account?.tabId),
+    )) {
+      try {
+        const context = studioContextSchema.parse(
+          await this.send(tab.id!, { type: 'discover' }),
+        );
+        if (channelId && context.channelId !== channelId) continue;
+        await this.repo.putAccount({
+          channelId: context.channelId,
+          channelName: context.channelName,
+          tabId: tab.id,
+          authuser: new URL(tab.url!).searchParams.get('authuser') ?? undefined,
+        });
+        await this.repo.selectChannel(context.channelId);
+        return context;
+      } catch (error) {
+        if (!channelId) throw error;
+      }
+    }
+    throw new Error(
+      channelId
+        ? 'Open this account’s channel in Studio, then read its current page.'
+        : 'Open YouTube Studio and select its tab, then read the current page.',
     );
   }
   async workingTab(channelId: string): Promise<number> {
-    const run = await this.repo.run();
-    if (run.workingTabId) {
+    const account = await this.repo.account(channelId);
+    if (!account)
+      throw new Error('Connect this channel from its Studio tab first.');
+    let tabId = account.tabId;
+    if (tabId) {
+      let tab: chrome.tabs.Tab | undefined;
       try {
-        const tab = await chrome.tabs.get(run.workingTabId);
-        if (
-          tab.url?.startsWith('https://studio.youtube.com/') &&
-          run.channelId === channelId
-        )
-          return run.workingTabId;
+        tab = await chrome.tabs.get(tabId);
       } catch {
-        /* A closed working tab is replaced only by an explicit preflight. */
+        tabId = undefined;
+      }
+      if (tab) {
+        if (
+          !tab.url?.startsWith('https://studio.youtube.com/') ||
+          new URL(tab.url).searchParams.get('authuser') !==
+            (account.authuser ?? null)
+        )
+          throw new Error(
+            'The Studio account changed. Read its current page before continuing.',
+          );
+        const current = studioContextSchema.parse(
+          await this.send(tabId!, { type: 'discover' }),
+        );
+        if (current.channelId !== channelId)
+          throw new Error(
+            'The Studio account changed. Read its current page before continuing.',
+          );
       }
     }
-    const tab = await chrome.tabs.create({
-      url: `https://studio.youtube.com/channel/${channelId}/videos`,
-      active: true,
+    if (!tabId) {
+      const url = new URL(
+        `https://studio.youtube.com/channel/${channelId}/videos`,
+      );
+      if (account.authuser !== undefined)
+        url.searchParams.set('authuser', account.authuser);
+      const tab = await chrome.tabs.create({ url: url.href, active: true });
+      if (!tab.id) throw new Error('Could not open Studio.');
+      tabId = tab.id;
+      await delay(1200);
+      account.tabId = tabId;
+      await this.repo.putAccount(account);
+    }
+    const run = await this.repo.run();
+    await this.repo.putRun({
+      ...run,
+      workingTabId: tabId,
+      channelId,
+      authuser: account.authuser,
     });
-    if (!tab.id) throw new Error('Could not open a Studio working tab.');
-    const current = await this.repo.run();
-    current.workingTabId = tab.id;
-    current.channelId = channelId;
-    await this.repo.putRun(current);
-    await delay(1200);
-    return tab.id;
+    return tabId;
   }
   private async navigate(
     tabId: number,
@@ -73,12 +129,26 @@ export class StudioBridge {
       throw new Error(
         'The dedicated Studio working tab changed. Check it before continuing.',
       );
+    const run = await this.repo.run();
+    const authuser = new URL(tab.url!).searchParams.get('authuser');
+    if (
+      run.workingTabId !== tabId ||
+      run.channelId !== channelId ||
+      authuser !== (run.authuser ?? null)
+    )
+      throw new Error(
+        'The working Studio account changed. Check this channel again.',
+      );
     const current = await this.send(tabId, { type: 'discover' }).then((value) =>
       studioContextSchema.parse(value),
     );
     if (current.channelId !== channelId)
       throw new Error('The working channel changed. The batch has paused.');
-    const url = `https://studio.youtube.com/video/${videoId}/${route}`;
+    const destination = new URL(
+      `https://studio.youtube.com/video/${videoId}/${route}`,
+    );
+    if (authuser !== null) destination.searchParams.set('authuser', authuser);
+    const url = destination.href;
     await chrome.tabs.update(tabId, { url });
     let lastError = 'Studio did not load.';
     for (let attempt = 0; attempt < 50; attempt++) {
@@ -141,6 +211,13 @@ export class StudioBridge {
     companionEvidence?: Evidence;
     wrote: boolean;
   }> {
+    if (
+      component === 'thumbnail' &&
+      !(await renderedLayoutIsCurrent(this.repo, job))
+    )
+      throw new Error(
+        'The editable layout changed. Render the thumbnail again before applying it.',
+      );
     const run = await this.repo.run();
     if (!run.workingTabId || run.channelId !== job.channelId)
       throw new Error(

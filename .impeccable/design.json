@@ -1,21 +1,33 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-10-07T15:12:00Z",
+  "generatedAt": "2026-10-07T16:16:00Z",
   "title": "YouTube Localizer",
   "extensions": {
     "shadows": [],
     "motion": [],
     "breakpoints": [
-      { "name": "narrow", "value": "350px" },
-      { "name": "stacked", "value": "600px" },
-      { "name": "wide", "value": "800px" }
+      {
+        "name": "narrow",
+        "value": "350px"
+      },
+      {
+        "name": "stacked",
+        "value": "600px"
+      },
+      {
+        "name": "wide",
+        "value": "800px"
+      }
     ],
     "typographyMeta": {
       "headline": {
         "displayName": "Workspace heading",
         "purpose": "Name the current task."
       },
-      "body": { "displayName": "Body", "purpose": "Read and compare content." }
+      "body": {
+        "displayName": "Body",
+        "purpose": "Read and compare content."
+      }
     }
   },
   "components": [
@@ -46,15 +58,15 @@
       "name": "Language chip",
       "kind": "chip",
       "description": "A selected target language.",
-      "html": "<button class=\"ds-chip\" aria-label=\"Remove French\">French ×</button>",
+      "html": "<button class=\"ds-chip\" aria-label=\"Remove French\">French \u00d7</button>",
       "css": ".ds-chip{font:400 12px Geist,sans-serif;background:var(--accent-soft,#fceee5);color:var(--accent,#a44218);border:0;border-radius:5px;padding:5px 9px;cursor:pointer}.ds-chip:focus-visible{outline:2px solid var(--accent,#a44218);outline-offset:3px}"
     },
     {
       "name": "Language review",
-      "kind": "card",
+      "kind": "custom",
       "description": "A language and its component states.",
-      "html": "<section class=\"ds-review\"><h2>French</h2><p>Title and description · Already present</p></section>",
-      "css": ".ds-review{font:400 13px Geist,sans-serif;background:var(--surface,#fff);color:var(--text,#24221f);border:1px solid var(--line,#ddd7ce);border-radius:12px;padding:16px 20px}.ds-review h2{font-size:18px;margin:0}.ds-review p{color:var(--muted,#6b655e);margin:12px 0 0}"
+      "html": "<section class=\"ds-review\"><h2>French</h2><p>Title and description \u00b7 Already present</p></section>",
+      "css": ".ds-review{font:400 13px Geist,sans-serif;color:var(--text,#24221f);border:0;padding:16px 0}.ds-review h2{font-size:18px;margin:0;padding-bottom:12px;border-bottom:1px solid var(--line,#ddd7ce)}.ds-review p{color:var(--muted,#6b655e);margin:12px 0 0}"
     }
   ],
   "narrative": {

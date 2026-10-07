@@ -1,3 +1,4 @@
+import { renderedLayoutIsCurrent } from '../layers/current';
 import {
   components,
   hash,
@@ -10,9 +11,13 @@ import {
 import type { Repository } from './storage';
 import type { Translation } from '../providers/text';
 import { ProviderError } from '../providers/http';
+import type { ImageResult } from '../providers/openai-image';
 export interface GenerationProvider {
   translate(job: Job, config: ProviderConfig): Promise<Translation>;
-  submitImage(job: Job, config: ProviderConfig): Promise<FalRequest>;
+  submitImage(
+    job: Job,
+    config: ProviderConfig,
+  ): Promise<FalRequest | ImageResult>;
   pollImage(request: FalRequest): Promise<string | undefined>;
   storeImage(url: string): Promise<{ id: string; hash: string }>;
 }
@@ -47,12 +52,17 @@ export class Runner {
         if (!slot) continue;
         if (slot.generation === 'submitting') {
           slot.generation =
-            component === 'thumbnail' && job.falRequest
-              ? 'waiting'
-              : 'ambiguous';
+            component === 'thumbnail' &&
+            slot.provider === 'ideogram-layerize/local'
+              ? 'queued'
+              : component === 'thumbnail' && job.falRequest
+                ? 'waiting'
+                : 'ambiguous';
           slot.error =
             slot.generation === 'ambiguous'
-              ? 'The browser stopped before a receipt was saved. Check your provider dashboard. This request will not be resubmitted automatically.'
+              ? slot.requestId
+                ? `Image request ${slot.requestId} was interrupted. Check OpenAI before retrying.`
+                : 'Request interrupted. Check your provider before retrying.'
               : undefined;
           changed = true;
         }
@@ -62,6 +72,13 @@ export class Runner {
             'The browser stopped during application. Recheck Studio before any further write.';
           changed = true;
         }
+      }
+      if (
+        job.slots.thumbnail?.generation === 'generated' &&
+        !(await renderedLayoutIsCurrent(this.repo, job))
+      ) {
+        job.slots.thumbnail.application = 'stale';
+        changed = true;
       }
       if (changed) await this.repo.putJob(job);
     }
@@ -113,10 +130,7 @@ export class Runner {
               if (component === 'thumbnail' && result.wrote !== false)
                 slot.application = 'needs-verification';
               slot.verifiedAt = exact ? Date.now() : undefined;
-              slot.error =
-                slot.application === 'needs-verification'
-                  ? 'Studio saved a thumbnail or unreadable result. Visually verify it in Studio; image processing prevents exact byte verification.'
-                  : undefined;
+              slot.error = undefined;
               const companion =
                 job.slots[component === 'title' ? 'description' : 'title'];
               if (
@@ -226,7 +240,7 @@ export class Runner {
               error: undefined,
             });
           if (needsWording) thumbnail!.generation = 'queued';
-          if (job.source.thumbnailTextApproved)
+          if (job.source.thumbnailTextApproved && !job.wordingApproved)
             job.thumbnailStrings = result.thumbnailStrings;
         } catch (error) {
           const status =
@@ -276,14 +290,24 @@ export class Runner {
         }
         if (!job.wordingApproved || !job.source.thumbnailAssetId) continue;
         if (
-          (job.source.thumbnailWidth ?? 0) < 1280 ||
-          (job.source.thumbnailHeight ?? 0) < 720
+          config.imageProvider !== 'layerize' &&
+          ((job.source.thumbnailWidth ?? 0) < 1280 ||
+            (job.source.thumbnailHeight ?? 0) < 720)
         )
           throw new Error(
             'Choose a source image of at least 1280 × 720 before paying for image edits.',
           );
-        await this.repo.consumeRequest(run.epoch);
+        if (config.imageProvider !== 'layerize')
+          await this.repo.consumeRequest(run.epoch);
         slot.generation = 'submitting';
+        slot.requestId = undefined;
+        slot.provider =
+          config.imageProvider === 'layerize'
+            ? 'ideogram-layerize/local'
+            : config.imageProvider === 'fal'
+              ? config.falModel
+              : config.imageModel;
+        slot.settingsHash = await hash(JSON.stringify(config));
         await this.repo.putJob(job);
         if (!(await this.repo.isActive(run.epoch, 'generate'))) {
           slot.generation = 'queued';
@@ -293,14 +317,24 @@ export class Runner {
         try {
           const receipt = await this.generation.submitImage(job, config);
           // This is the receipt checkpoint. A subsequent wake polls it, never submits again.
-          job.falRequest = receipt;
-          slot.generation = 'waiting';
-          slot.provider = receipt.model;
+          if ('assetId' in receipt) {
+            job.falRequest = undefined;
+            slot.assetId = receipt.assetId;
+            slot.assetHash = receipt.hash;
+            slot.requestId = receipt.requestId;
+            slot.generation = 'generated';
+            slot.provider = receipt.provider;
+          } else {
+            job.falRequest = receipt;
+            slot.generation = 'waiting';
+            slot.provider = receipt.model;
+          }
           slot.settingsHash = await hash(JSON.stringify(config));
           slot.error = undefined;
         } catch (error) {
           slot.generation =
-            error instanceof ProviderError && error.outcome === 'rejected'
+            config.imageProvider === 'layerize' ||
+            (error instanceof ProviderError && error.outcome === 'rejected')
               ? 'error'
               : 'ambiguous';
           slot.error =
