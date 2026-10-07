@@ -18,7 +18,7 @@ npm run build
 4. Pin YouTube Localizer and click its icon to open the side panel.
 5. Open YouTube Studio in English. This first version stops on unsupported Studio layouts rather than guessing controls.
 
-`npm run package` creates `artifacts/youtube-localizer-0.3.0.zip`. Extract it and load the extracted folder. The ZIP is also suitable for a future store submission, after the live pilot and publication checks below.
+`npm run package` creates `artifacts/youtube-localizer-0.4.0.zip`. Extract it and load the extracted folder. The ZIP is also suitable for a future store submission, after the live pilot and publication checks below.
 
 ## Use it
 
@@ -40,6 +40,18 @@ Keep each account's channel open in a separate Studio tab. Choose **Add account*
 
 Navigation preserves the observed `authuser` selector. An account or channel change in the bound tab stops the batch. If a tab is closed, preflight can reopen its observed account route, then verifies the channel before reading or writing. After importing a backup, connect each account again.
 
+## Generate original thumbnails
+
+Open a video's **Details** page in English Studio. **Generate** appears beside the Thumbnail heading. It opens the extension's composer with that video's title and description. The extension header also opens the composer/reference library, and Review offers **Generate thumbnail** beside the source image.
+
+Add face, brand or style images once, then select the references you want for each video. **Manage references** lets you rename them, set their role or remove them from the library. References are stored only in this browser. Uploads are re-encoded as PNGs, with metadata removed and their longest edge capped at 2048 pixels. Adding or browsing references makes no provider request.
+
+Describe the scene, layout and headline, then select **Generate**. Original thumbnail creation uses [GPT Image 2.5](https://developers.openai.com/api/docs/guides/image-generation), independently of the localization image provider. With references it sends only the selected image bytes and optional source thumbnail to OpenAI; without references it uses text-to-image generation. Each submitted generation creates one paid image request. The model and quality follow the OpenAI image settings, and an OpenAI API key is required. Provider permission is requested before the first call.
+
+Generated variants, prompts and reference snapshots are cached per video. Reopening the composer makes no new paid request. Download a 1280 × 720 JPEG to upload through Studio, or choose **Use for localization** to make it the local source for language variants. Generation does not change Studio's primary thumbnail or save video details. The existing reviewed language-dialog writer is unchanged.
+
+Backups include reference images and creation history, so keep them private. Removing a library entry does not remove bytes retained by historical requests or generated work. Interrupted generations retain their request ID when available and require checking OpenAI before explicitly accepting another charge.
+
 ## Editable thumbnails with Ideogram
 
 Select **Ideogram editable text** in Settings and add a Fal key. In Review, **Prepare editable text · paid once** submits the cached source to [Layerize Text](https://fal.ai/models/fal-ai/ideogram/v3/layerize-text/api). The extension saves its receipt, downloads the clean background and converts the static overlay into editable text boxes. One preparation is reused for the same source image across videos and languages.
@@ -59,7 +71,7 @@ Changing the layout invalidates old image approvals. Select **Generate missing**
 
 The extension uses API keys for text and images. Host permissions are requested for configured providers when you save Settings. Keys never enter Studio's page context or content-script messages. ChatGPT plan sign-in is outside this extension's scope.
 
-Generation costs are paid to your providers. A per-run request limit bounds new submissions, not a currency amount. Pause prevents new paid requests and Studio mutations. Already-submitted work can still finish and incur charges.
+Generation costs are paid to your providers. For localization runs, a per-run request limit bounds new submissions, not a currency amount. Pause prevents new paid requests and Studio mutations. Already-submitted work can still finish and incur charges.
 
 ## Recovery and privacy
 

@@ -1,3 +1,4 @@
+import type { Reference, Creation } from '../thumbnails/model';
 import type { LayerTemplate } from '../layers/model';
 import { useSyncExternalStore } from 'react';
 import { repository } from '../core/storage';
@@ -12,6 +13,8 @@ import {
   type Video,
 } from '../core/model';
 export interface Workspace {
+  references: Reference[];
+  creations: Creation[];
   accounts: Account[];
   activeChannel: string;
   templates: LayerTemplate[];
@@ -28,6 +31,8 @@ interface Snapshot {
 }
 let snapshot: Snapshot = {
   workspace: {
+    references: [],
+    creations: [],
     accounts: [],
     activeChannel: '',
     templates: [],
@@ -53,6 +58,8 @@ async function refresh() {
       templates,
       accounts,
       activeChannel,
+      references,
+      creations,
     ] = await Promise.all([
       repository.videos(),
       repository.jobs(),
@@ -62,6 +69,8 @@ async function refresh() {
       repository.templates(),
       repository.accounts(),
       repository.activeChannel(),
+      repository.references(),
+      repository.creations(),
     ]);
     snapshot = {
       workspace: {
@@ -73,6 +82,8 @@ async function refresh() {
         templates,
         accounts,
         activeChannel,
+        references,
+        creations,
       },
       loading: false,
       storageError: '',

@@ -1,8 +1,20 @@
+import { installThumbnailButton } from './thumbnail-button';
 import { z } from 'zod';
 import { componentSchema } from '../core/model';
-import { discover, readDetails, readTranslations, StudioWriter } from './dom';
+import {
+  discover,
+  readDetails,
+  readThumbnailContext,
+  readTranslations,
+  StudioWriter,
+} from './dom';
 const commandSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('discover') }),
+  z.object({
+    type: z.literal('thumbnail-context'),
+    channelId: z.string(),
+    videoId: z.string(),
+  }),
   z.object({
     type: z.literal('details'),
     channelId: z.string(),
@@ -49,6 +61,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     switch (command.type) {
       case 'discover':
         return discover();
+      case 'thumbnail-context':
+        return readThumbnailContext(command.channelId, command.videoId);
       case 'details':
         return readDetails(command.channelId, command.videoId);
       case 'translations':
@@ -78,3 +92,5 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     );
   return true;
 });
+
+installThumbnailButton();

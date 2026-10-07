@@ -35,3 +35,11 @@ Connect two Studio accounts in separate tabs. Give them different target languag
 Run one GPT Image 2.5 Sunburst streamed edit and one Ideogram 4.5 Edit at very_low quality with high precision. Confirm model names and counts in each provider dashboard. Interrupt a streamed OpenAI request and confirm it is ambiguous rather than automatically repeated.
 
 Run one Layerize preparation on a real thumbnail. Compare the clean background and extracted layout, correct boxes and approve. Enter German and Arabic wording manually and render locally. Confirm no further image or text request occurs. Restart Chrome, restore keys if needed, and reuse the cached template. Change layout and confirm old images cannot be approved or applied until rendered again. Check decorative lettering and a long translation; correct the layout instead of silently clipping. Export/import a backup and verify the template is present but unapproved.
+
+## Original thumbnail and references
+
+On a real video's English Details page, verify a single Generate button appears next to Thumbnail and opens the right video/account composer. Navigate between Details and Languages, and confirm the launcher disappears from unsupported routes without duplicate buttons. Reload Studio after updating the unpacked extension.
+
+Add a face portrait, brand image and style reference locally. Confirm adding them makes no provider call. Generate using only the portrait and inspect likeness, anatomy, composition and requested text. Check the provider dashboard for one request; repeat without references to verify text-only generation. Keep filenames, private reference images and signed source URLs out of public evidence.
+
+Reopen Chrome and confirm library images, prompts and variants remain. Download the result, or choose it as a cached localization source. Confirm no primary-thumbnail or source-details save occurred, and visibility/schedule remain unchanged. Check the native provider-permission prompt and session-only key restoration; native Chrome permission dialogs are simulated in headless fixtures.

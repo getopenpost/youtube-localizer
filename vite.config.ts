@@ -5,7 +5,13 @@ export default defineConfig({
   base: './',
   build: {
     rollupOptions: {
-      input: ['sidepanel.html', 'review.html', 'options.html', 'render.html'],
+      input: [
+        'sidepanel.html',
+        'review.html',
+        'options.html',
+        'render.html',
+        'thumbnail.html',
+      ],
     },
   },
   server: { port: 4397, strictPort: true },

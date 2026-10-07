@@ -77,3 +77,21 @@ export async function dataUrl(blob: Blob): Promise<string> {
     binary += String.fromCharCode(...bytes.subarray(i, i + 8192));
   return `data:${blob.type};base64,${btoa(binary)}`;
 }
+
+export async function referenceAsset(file: Blob): Promise<Asset> {
+  const source = await imageAsset(file);
+  const bitmap = await createImageBitmap(source.blob);
+  const scale = Math.min(1, 2048 / Math.max(bitmap.width, bitmap.height));
+  const canvas = new OffscreenCanvas(
+    Math.round(bitmap.width * scale),
+    Math.round(bitmap.height * scale),
+  );
+  const context = canvas.getContext('2d');
+  if (!context) {
+    bitmap.close();
+    throw new Error('Could not prepare this reference.');
+  }
+  context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  bitmap.close();
+  return imageAsset(await canvas.convertToBlob({ type: 'image/png' }));
+}

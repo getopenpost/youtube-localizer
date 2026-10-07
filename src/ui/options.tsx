@@ -213,24 +213,21 @@ export function Options() {
               />
             </label>
           )}
-          {settings.provider.imageProvider === 'openai' &&
-            (settings.provider.protocol !== 'openai' ||
-              settings.provider.baseUrl.replace(/\/$/, '') !==
-                'https://api.openai.com/v1') && (
-              <label>
-                OpenAI key for images
-                <input
-                  type="password"
-                  value={imageKey}
-                  onChange={(e) => setImageKey(e.target.value)}
-                  placeholder={
-                    saved.image
-                      ? 'Saved. Leave blank to keep.'
-                      : 'OpenAI API key'
-                  }
-                />
-              </label>
-            )}
+          {(settings.provider.protocol !== 'openai' ||
+            settings.provider.baseUrl.replace(/\/$/, '') !==
+              'https://api.openai.com/v1') && (
+            <label>
+              OpenAI key for images
+              <input
+                type="password"
+                value={imageKey}
+                onChange={(e) => setImageKey(e.target.value)}
+                placeholder={
+                  saved.image ? 'Saved. Leave blank to keep.' : 'OpenAI API key'
+                }
+              />
+            </label>
+          )}
         </fieldset>
         <fieldset disabled={disabled}>
           <legend>Languages</legend>

@@ -182,7 +182,7 @@ export async function discover(): Promise<StudioContext> {
   });
   return { ...identity, videos, scope: 'page' };
 }
-export async function readDetails(
+export async function readThumbnailContext(
   channel: string,
   videoId: string,
 ): Promise<Video> {
@@ -207,13 +207,7 @@ export async function readDetails(
   );
   const visibilityLabel = text(visibilityRoot).replace(/\s+/g, ' ');
   const visibility = classifyVisibility(visibilityLabel);
-  if (visibility === 'unknown')
-    throw new Error(
-      'Studio’s visibility or schedule is unreadable. Open the video details and retry.',
-    );
   const scheduledAt = visibility === 'scheduled' ? visibilityLabel : undefined;
-  if (visibility === 'scheduled' && !/\d/.test(scheduledAt ?? ''))
-    throw new Error('Could not read the schedule. No changes will be applied.');
   const thumbnail = all(
     'ytcp-video-metadata-editor img,ytcp-navigation-drawer img',
   )
@@ -230,6 +224,19 @@ export async function readDetails(
     scheduledAt,
     thumbnailTextApproved: false,
   };
+}
+export async function readDetails(
+  channel: string,
+  videoId: string,
+): Promise<Video> {
+  const video = await readThumbnailContext(channel, videoId);
+  if (video.visibility === 'unknown')
+    throw new Error(
+      'Studio’s visibility or schedule is unreadable. Open the video details and retry.',
+    );
+  if (video.visibility === 'scheduled' && !/\d/.test(video.scheduledAt ?? ''))
+    throw new Error('Could not read the schedule. No changes will be applied.');
+  return video;
 }
 function translationsTable() {
   const table = document.querySelector<HTMLElement>(

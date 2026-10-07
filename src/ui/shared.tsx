@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import {
   ArrowUpRight,
+  ImagePlus,
   Check,
   Globe2,
   Settings2,
@@ -12,7 +13,9 @@ import { repository } from '../core/storage';
 import type { Slot } from '../core/model';
 export const isExtension = () =>
   typeof chrome !== 'undefined' && !!chrome.runtime?.id;
-export function openPage(page: 'options' | 'review' | 'sidepanel') {
+export function openPage(
+  page: 'options' | 'review' | 'sidepanel' | 'thumbnail',
+) {
   if (isExtension())
     void chrome.tabs.create({ url: chrome.runtime.getURL(`${page}.html`) });
   else location.href = `/${page}.html`;
@@ -33,6 +36,15 @@ export function Header({ page }: { page: string }) {
         </span>
       </a>
       <nav aria-label="Workspace">
+        <button
+          className="icon-button"
+          aria-label="Generate thumbnails"
+          title="Thumbnails"
+          aria-current={page === 'thumbnail' ? 'page' : undefined}
+          onClick={() => openPage('thumbnail')}
+        >
+          <ImagePlus size={19} />
+        </button>
         <button
           className="icon-button"
           title="Review workspace"
@@ -200,4 +212,16 @@ export function DownloadButton({
       {error && <Notice error>{error}</Notice>}
     </>
   );
+}
+
+export function openThumbnail(video: { id: string; channelId: string }) {
+  const url = new URL(
+    isExtension()
+      ? chrome.runtime.getURL('thumbnail.html')
+      : `${location.origin}/thumbnail.html`,
+  );
+  url.searchParams.set('video', video.id);
+  url.searchParams.set('channel', video.channelId);
+  if (isExtension()) void chrome.tabs.create({ url: url.href });
+  else location.href = url.href;
 }

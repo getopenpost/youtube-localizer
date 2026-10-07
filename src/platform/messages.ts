@@ -1,3 +1,4 @@
+import { referenceSchema, MAX_REFERENCES } from '../thumbnails/model';
 import { layerSchema } from '../layers/model';
 import { z } from 'zod';
 import {
@@ -6,6 +7,17 @@ import {
   settingsSchema,
 } from '../core/model';
 export const commandSchema = z.discriminatedUnion('type', [
+  z.object({ type: z.literal('reference-save'), reference: referenceSchema }),
+  z.object({ type: z.literal('reference-remove'), id: z.string().uuid() }),
+  z.object({
+    type: z.literal('thumbnail-generate'),
+    id: z.string().uuid(),
+    videoId: z.string().regex(/^[\w-]{11}$/),
+    prompt: z.string().trim().min(1).max(6000),
+    referenceIds: z.array(z.string().uuid()).max(MAX_REFERENCES),
+    useCurrent: z.boolean(),
+    acknowledged: z.boolean().default(false),
+  }),
   z.object({
     type: z.literal('prepare-template'),
     videoId: z.string(),

@@ -66,6 +66,41 @@ export class StudioBridge {
         : 'Open YouTube Studio and select its tab, then read the current page.',
     );
   }
+  async composerVideo(tabId: number): Promise<Video> {
+    const tab = await chrome.tabs.get(tabId);
+    const url = tab.url ? new URL(tab.url) : undefined;
+    const id = url?.pathname.match(/^\/video\/([\w-]{11})\/edit\/?$/)?.[1];
+    if (url?.origin !== 'https://studio.youtube.com' || !id)
+      throw new Error('Open a video’s details in Studio first.');
+    const context = studioContextSchema.parse(
+      await this.send(tabId, { type: 'discover' }),
+    );
+    const video = videoSchema.parse(
+      await this.send(tabId, {
+        type: 'thumbnail-context',
+        channelId: context.channelId,
+        videoId: id,
+      }),
+    );
+    if (
+      (await chrome.tabs.get(tabId)).url !== tab.url ||
+      video.id !== id ||
+      video.channelId !== context.channelId
+    )
+      throw new Error(
+        'Studio changed. Open the composer again from this video.',
+      );
+    const previous = await this.repo.account(video.channelId);
+    video.channelName = previous?.channelName ?? context.channelName;
+    await this.repo.putAccount({
+      channelId: video.channelId,
+      channelName: video.channelName,
+      tabId,
+      authuser: url.searchParams.get('authuser') ?? undefined,
+    });
+    await this.repo.selectChannel(video.channelId);
+    return video;
+  }
   async workingTab(channelId: string): Promise<number> {
     const account = await this.repo.account(channelId);
     if (!account)

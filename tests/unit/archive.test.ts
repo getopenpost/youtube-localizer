@@ -93,6 +93,26 @@ it('roundtrips generated assets as unapproved cache and excludes credentials, si
         'https://queue.fal.run/fal-ai/ideogram/requests/template-receipt',
     },
   });
+  const reference = {
+    id: crypto.randomUUID(),
+    name: 'My face',
+    assetId: assetHash,
+    kind: 'person' as const,
+  };
+  await repo.putReference(reference);
+  const creation = {
+    id: crypto.randomUUID(),
+    video,
+    prompt: 'A thumbnail using my reference',
+    references: [reference],
+    model: 'gpt-image-2.5-sunburst' as const,
+    quality: 'auto' as const,
+    state: 'generated' as const,
+    assetId: assetHash,
+    retryAcknowledged: false,
+    createdAt: 1,
+  };
+  await repo.putCreation(creation);
   const archive = await exportArchive(repo);
   const contents = unzipSync(new Uint8Array(await archive.arrayBuffer()));
   const json = strFromU8(contents['history.json']);
@@ -103,6 +123,11 @@ it('roundtrips generated assets as unapproved cache and excludes credentials, si
   const restored = new Repository(crypto.randomUUID());
   await importArchive(restored, archive);
   const result = (await restored.job(job.id))!;
+  expect((await restored.reference(reference.id))?.name).toBe('My face');
+  expect((await restored.creation(creation.id))?.assetId).toBe(assetHash);
+  expect(
+    (await restored.creation(creation.id))?.video.thumbnailUrl,
+  ).toBeUndefined();
   expect(result.slots.thumbnail?.application).toBe('pending');
   expect(result.slots.thumbnail?.lastEvidence?.state).toBe('unknown');
   expect(result.slots.thumbnail?.verifiedAt).toBeUndefined();

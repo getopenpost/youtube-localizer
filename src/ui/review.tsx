@@ -30,6 +30,7 @@ import {
   Status,
   download,
   openPage,
+  openThumbnail,
 } from './shared';
 import { useWorkspace } from './use-workspace';
 function TextReview({
@@ -475,6 +476,14 @@ function SourceReview({
               : 'No cached source image'}
             {poor ? ' · Low resolution' : ''}
           </p>
+          <button
+            className="text-button"
+            disabled={disabled}
+            onClick={() => openThumbnail(video)}
+          >
+            <Sparkles size={15} />
+            Generate thumbnail
+          </button>
           <label className="file-button text-button">
             <ImagePlus size={16} />
             Use another image

@@ -1,3 +1,9 @@
+import {
+  referenceSchema,
+  creationSchema,
+  type Reference,
+  type Creation,
+} from '../thumbnails/model';
 import { templateSchema, type LayerTemplate } from '../layers/model';
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
 import {
@@ -19,7 +25,15 @@ interface LocalizerDB extends DBSchema {
   assets: { key: string; value: Asset };
   meta: {
     key: string;
-    value: Run | Settings | Preferences | LayerTemplate | Account | string;
+    value:
+      | Run
+      | Settings
+      | Preferences
+      | LayerTemplate
+      | Account
+      | string
+      | Reference
+      | Creation;
   };
 }
 export class Repository {
@@ -63,6 +77,43 @@ export class Repository {
   }
   async putAsset(asset: Asset) {
     await (await this.db()).put('assets', asset);
+  }
+  async references(): Promise<Reference[]> {
+    const db = await this.db();
+    const keys = await db.getAllKeys('meta');
+    const values = await db.getAll('meta');
+    return values
+      .filter((_, i) => keys[i].startsWith('reference:'))
+      .map((value) => referenceSchema.parse(value));
+  }
+  async reference(id: string): Promise<Reference | undefined> {
+    const value = await (await this.db()).get('meta', `reference:${id}`);
+    return value ? referenceSchema.parse(value) : undefined;
+  }
+  async putReference(value: Reference) {
+    await (
+      await this.db()
+    ).put('meta', referenceSchema.parse(value), `reference:${value.id}`);
+  }
+  async removeReference(id: string) {
+    await (await this.db()).delete('meta', `reference:${id}`);
+  }
+  async creations(): Promise<Creation[]> {
+    const db = await this.db();
+    const keys = await db.getAllKeys('meta');
+    const values = await db.getAll('meta');
+    return values
+      .filter((_, i) => keys[i].startsWith('creation:'))
+      .map((value) => creationSchema.parse(value));
+  }
+  async creation(id: string): Promise<Creation | undefined> {
+    const value = await (await this.db()).get('meta', `creation:${id}`);
+    return value ? creationSchema.parse(value) : undefined;
+  }
+  async putCreation(value: Creation) {
+    await (
+      await this.db()
+    ).put('meta', creationSchema.parse(value), `creation:${value.id}`);
   }
   async template(id: string): Promise<LayerTemplate | undefined> {
     const value = await (await this.db()).get('meta', `template:${id}`);
@@ -175,6 +226,8 @@ export class Repository {
     assets: Asset[];
     preferences: Preferences[];
     templates?: LayerTemplate[];
+    references?: Reference[];
+    creations?: Creation[];
   }) {
     const db = await this.db();
     const tx = db.transaction(
@@ -196,6 +249,14 @@ export class Repository {
     for (const template of data.templates ?? [])
       if (!(await tx.objectStore('meta').get(`template:${template.id}`)))
         await tx.objectStore('meta').put(template, `template:${template.id}`);
+    for (const reference of data.references ?? [])
+      if (!(await tx.objectStore('meta').get(`reference:${reference.id}`)))
+        await tx
+          .objectStore('meta')
+          .put(reference, `reference:${reference.id}`);
+    for (const creation of data.creations ?? [])
+      if (!(await tx.objectStore('meta').get(`creation:${creation.id}`)))
+        await tx.objectStore('meta').put(creation, `creation:${creation.id}`);
     await tx.done;
   }
 }

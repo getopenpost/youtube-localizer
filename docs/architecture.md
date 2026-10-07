@@ -2,7 +2,7 @@
 
 The content script reads the Studio DOM and performs allowlisted language-dialog operations. It has no provider credentials, arbitrary page bridge or network-generation API.
 
-Extension pages send validated commands to a service worker. The worker verifies the sender is one of the packaged UI pages. Studio content messages can only check whether the current writer epoch is active. There are no externally connectable messages or web-accessible extension resources.
+Extension pages send validated commands to a service worker. The worker verifies the sender is one of the packaged UI pages. Studio content messages can check whether the current writer epoch is active or request the video-details composer launcher. The latter validates the sender's top-level Studio route and reads context through the bridge; it cannot call providers or access references. There are no externally connectable messages or web-accessible extension resources.
 
 The coordinator owns a single Web Lock across discovery, preflight, generation and application. Pause updates a separate durable epoch without waiting for that lock. Before paid requests and each DOM mutation, the run must still have the same epoch and mode. Worker initialization recovers interrupted submission and application states under the same lock.
 
@@ -27,3 +27,13 @@ Layerize preparation is keyed by the cached source hash. Save submitting before 
 A bundled offscreen document sanitizes provider overlay HTML with DOMPurify, accepts only bounded layout styles and packaged fonts, then measures editable boxes. It never loads provider HTML scripts, images, stylesheets or remote fonts. If parsing fails, keep the downloaded background and let the user add boxes. The canvas renderer consumes cached background bytes and validated text layers, never provider URLs. Local renders do not consume the paid request counter, and an interrupted local render is safely requeued.
 
 Rendered slots record their template revision. Approval and Studio application require that revision to match the current approved template, even if a worker stopped between template persistence and dependent job invalidation. Recovery marks obsolete local images stale. Approved manual words survive unrelated text generation.
+
+## Original thumbnail creation
+
+The Studio launcher attaches a shadow-DOM button to the confirmed ytcp-video-thumbnail-editor #autogen-thumb-label element. A throttled MutationObserver handles Studio navigation and replacement nodes; it inserts one launcher only on supported English video-details routes. Trusted clicks ask the worker to reread the current video/channel and account selector. The worker opens a packaged thumbnail.html page. It does not modify Studio fields.
+
+Reference images are bounded local blobs, re-encoded without original metadata and capped at a 2048-pixel longest edge. Library metadata is separate from creation snapshots, so removing or renaming a reference does not change old requests. Archives include reference blobs and cached creations but strip signed Studio URLs; imported in-flight creations become ambiguous.
+
+Creation commands have client-generated UUIDs. Repeated commands with the same UUID return their existing checkpoint. The coordinator persists submitting, selects only requested reference blobs, and calls the official OpenAI SDK with retries disabled. A custom SDK fetch guard rechecks the durable pause epoch after multipart serialization and immediately before POST. Response request IDs persist before stream consumption; completed JPEG assets persist before the creation becomes generated. No queue polling or automatic resubmission exists for interrupted OpenAI streams.
+
+The composer uses image edits for reference-guided creation, and image generations for text-only creation. It uses the configured GPT Image 2.5 model and quality independently of the image localization mode. A deliberate click authorizes one new paid image. Reopening and choosing variants are local. Download and use-for-localization are separate from Studio publication; the latter uses the existing cached-source command.

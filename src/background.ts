@@ -1,3 +1,4 @@
+import { generateThumbnail, recoverCreations } from './thumbnails/coordinator';
 import { defaultRun, hash, preferencesSchema, type Job } from './core/model';
 import { repository as repo } from './core/storage';
 import { preflightPlan } from './core/planner';
@@ -105,6 +106,7 @@ const ready = (async () => {
     (async () => {
       await runner.recover();
       await recoverTemplates(repo);
+      await recoverCreations(repo);
     })(),
   );
 })();
@@ -151,6 +153,20 @@ async function assertPaused() {
 }
 async function execute(value: Command): Promise<unknown> {
   switch (value.type) {
+    case 'thumbnail-generate':
+      await assertPaused();
+      return generateThumbnail(repo, value);
+    case 'reference-save':
+      await assertPaused();
+      if (!(await repo.asset(value.reference.assetId)))
+        throw new Error('Reference image is missing. Add it again.');
+      await repo.putReference(value.reference);
+      return;
+    case 'reference-remove':
+      await assertPaused();
+      await repo.removeReference(value.id);
+      return;
+
     case 'discover': {
       await assertPaused();
       const context = await bridge.discover(value.channelId);
@@ -644,6 +660,80 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (sender.id !== chrome.runtime.id) return;
   if (sender.tab && sender.url?.startsWith('https://studio.youtube.com/')) {
     if (
+      message?.type === 'thumbnail-open' &&
+      sender.frameId === 0 &&
+      sender.tab.id &&
+      /^https:\/\/studio\.youtube\.com\/video\/[\w-]{11}\/edit(?:[?].*)?$/.test(
+        sender.url,
+      )
+    ) {
+      const tabId = sender.tab.id;
+      void ready
+        .then(() =>
+          navigator.locks.request('localizer-coordinator', async () => {
+            await assertPaused();
+            const video = await bridge.composerVideo(tabId);
+            const known = await repo.video(video.id);
+            let cached;
+            if (video.thumbnailUrl)
+              try {
+                cached = await imageAsset(
+                  await fetchImage(video.thumbnailUrl, 'studio'),
+                );
+                await repo.putAsset(cached);
+              } catch {
+                /* References and text-only generation remain available. */
+              }
+            const changed =
+              known &&
+              (known.title !== video.title ||
+                known.description !== video.description ||
+                known.visibility !== video.visibility ||
+                known.scheduledAt !== video.scheduledAt ||
+                (cached && known.studioThumbnailHash !== cached.hash));
+            await repo.putVideo({
+              ...known,
+              ...video,
+              checkedAt: changed ? undefined : known?.checkedAt,
+              sourceHashes: changed ? undefined : known?.sourceHashes,
+              thumbnailAssetId:
+                known?.thumbnailOrigin === 'chosen'
+                  ? known.thumbnailAssetId
+                  : cached?.id,
+              studioThumbnailHash: cached?.hash ?? known?.studioThumbnailHash,
+              thumbnailOrigin: known?.thumbnailOrigin,
+              thumbnailWidth:
+                known?.thumbnailOrigin === 'chosen'
+                  ? known.thumbnailWidth
+                  : cached?.width,
+              thumbnailHeight:
+                known?.thumbnailOrigin === 'chosen'
+                  ? known.thumbnailHeight
+                  : cached?.height,
+              thumbnailText: known?.thumbnailText,
+              thumbnailTextApproved: changed
+                ? false
+                : (known?.thumbnailTextApproved ?? false),
+            });
+            const url = new URL(chrome.runtime.getURL('thumbnail.html'));
+            url.searchParams.set('video', video.id);
+            url.searchParams.set('channel', video.channelId);
+            await chrome.tabs.create({ url: url.href, active: true });
+          }),
+        )
+        .then(() => sendResponse({ ok: true }))
+        .catch((error) =>
+          sendResponse({
+            ok: false,
+            error:
+              error instanceof Error
+                ? error.message
+                : 'Could not open the composer.',
+          }),
+        );
+      return true;
+    }
+    if (
       message?.type === 'writer-active' &&
       typeof message.epoch === 'number'
     ) {
@@ -662,9 +752,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
     return;
   }
-  const trustedPages = ['sidepanel.html', 'review.html', 'options.html'].map(
-    (page) => chrome.runtime.getURL(page),
-  );
+  const trustedPages = [
+    'sidepanel.html',
+    'review.html',
+    'options.html',
+    'thumbnail.html',
+  ].map((page) => chrome.runtime.getURL(page));
   const senderUrl = sender.url;
   if (
     !senderUrl ||

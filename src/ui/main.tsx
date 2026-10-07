@@ -6,6 +6,7 @@ import '@fontsource/geist/600.css';
 import './style.css';
 import { Panel } from './panel';
 import { Review } from './review';
+import { Thumbnail } from './thumbnail';
 import { Options } from './options';
 import { About, Header, Notice, isExtension } from './shared';
 class ErrorBoundary extends Component<
@@ -33,11 +34,13 @@ class ErrorBoundary extends Component<
     );
   }
 }
-const page = location.pathname.includes('options')
-  ? 'options'
-  : location.pathname.includes('review')
-    ? 'review'
-    : 'sidepanel';
+const page = location.pathname.includes('thumbnail')
+  ? 'thumbnail'
+  : location.pathname.includes('options')
+    ? 'options'
+    : location.pathname.includes('review')
+      ? 'review'
+      : 'sidepanel';
 async function start() {
   if (
     import.meta.env.DEV &&
@@ -55,7 +58,9 @@ async function start() {
             requests.
           </Notice>
         )}
-        {page === 'options' ? (
+        {page === 'thumbnail' ? (
+          <Thumbnail />
+        ) : page === 'options' ? (
           <Options />
         ) : page === 'review' ? (
           <Review />

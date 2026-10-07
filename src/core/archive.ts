@@ -1,3 +1,4 @@
+import { referenceSchema, creationSchema } from '../thumbnails/model';
 import { templateSchema } from '../layers/model';
 import { zipSync, unzip, strToU8, strFromU8 } from 'fflate';
 import { z } from 'zod';
@@ -18,6 +19,8 @@ const exportVideo = (video: z.infer<typeof videoSchema>) => ({
   thumbnailUrl: undefined,
 });
 const archiveSchema = z.object({
+  references: z.array(referenceSchema).max(1000).default([]),
+  creations: z.array(creationSchema).max(10000).default([]),
   templates: z.array(templateSchema).max(10000).default([]),
   format: z.literal('youtube-localizer'),
   version: z.literal(1),
@@ -42,6 +45,11 @@ export async function exportArchive(repo: Repository): Promise<Blob> {
     templates: (await repo.templates()).map((template) => ({
       ...template,
       request: undefined,
+    })),
+    references: await repo.references(),
+    creations: (await repo.creations()).map((creation) => ({
+      ...creation,
+      video: exportVideo(creation.video),
     })),
     format: 'youtube-localizer',
     version: 1,
@@ -182,11 +190,29 @@ export async function importArchive(repo: Repository, file: Blob) {
       template.state = 'ambiguous';
     template.request = undefined;
   }
+  for (const reference of manifest.references)
+    if (!assetIds.has(reference.assetId))
+      throw new Error('A saved reference image is missing.');
+  for (const creation of manifest.creations) {
+    for (const id of [
+      ...creation.references.map((r) => r.assetId),
+      ...(creation.assetId ? [creation.assetId] : []),
+      ...(creation.sourceAssetId ? [creation.sourceAssetId] : []),
+    ])
+      if (!assetIds.has(id))
+        throw new Error('A generated thumbnail references a missing image.');
+    creation.video.thumbnailUrl = undefined;
+    creation.video.checkedAt = undefined;
+    if (creation.state === 'submitting') creation.state = 'ambiguous';
+    creation.retryAcknowledged = false;
+  }
   await repo.importCache({
     videos: manifest.videos,
     jobs: manifest.jobs,
     assets,
     preferences: manifest.preferences,
     templates: manifest.templates,
+    references: manifest.references,
+    creations: manifest.creations,
   });
 }
