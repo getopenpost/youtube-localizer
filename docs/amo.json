@@ -10,7 +10,7 @@
     "en-US": "Video text and selected images are sent directly to providers you configure when you request generation. API keys are sent only to their selected provider. History and references stay in extension storage. OpenPost receives no extension data, and there is no extension telemetry or operator backend."
   },
   "version": {
-    "approval_notes": "Build: npm ci && npm run build:firefox. Svelte UI uses static bundled icon markup. Ideogram overlay HTML is sanitized with DOMPurify to a bounded static text/style whitelist before local rendering. Chromium uses offscreen rendering; Firefox uses its privileged event background document. API keys use trusted session storage and a separate extension-origin IndexedDB vault for Firefox persistence. Source and compiled UI dependency archives are included.",
+    "approval_notes": "Build: npm ci && npm run build:firefox. Svelte UI uses static bundled icon markup. Ideogram overlay HTML is sanitized with DOMPurify to a bounded static text/style whitelist before local rendering. Chromium uses offscreen rendering; Firefox uses its privileged event background document. API keys use trusted session storage and a separate extension-origin IndexedDB vault for Firefox persistence. Source and compiled UI dependency archives are included. Zod includes an eval capability probe that falls back under the extension CSP; dynamic evaluation is not permitted by the manifest.",
     "custom_license": {
       "name": {
         "en-US": "GNU Affero General Public License v3.0"

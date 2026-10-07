@@ -77,11 +77,11 @@ Dark mode preserves the same reading order and control hierarchy. Its accent use
 
 ## Typography
 
-Geist is bundled locally. Body copy uses the body token; forms and help text use smaller labels. Main full-page headings use 32–34px on wider screens and 28px on narrow screens. Counts use tabular numerals. Translated text uses automatic direction.
+Geist is bundled locally. Body copy uses the body token; forms and help text use smaller labels. Settings and Review headings use 24px. The thumbnail composer uses 28px. Counts use tabular numerals. Translated text uses automatic direction.
 
 ## Layout
 
-The side panel has 20px horizontal padding. Full pages cap at 1120px with 32px gutters; Settings caps at 840px. Review has a 240–320px source column and a flexible target column. Below 600px it stacks the source and targets and uses 20px gutters. Below 350px the side panel trims header and row spacing.
+The side panel has 20px horizontal padding. Full pages cap at 1120px with 32px gutters; Settings caps at 720px. The thumbnail composer stacks below 700px. Review has a 240–320px source column and a flexible target column. Below 600px it stacks the source and targets and uses 20px gutters. Below 350px the side panel trims header and row spacing.
 
 ## Elevation & Depth
 
@@ -89,11 +89,11 @@ There are no shadows. Surface tones and thin borders separate comparisons and fo
 
 ## Shapes
 
-Controls use the control radius. Review panels use the panel radius. Small thumbnails use tighter corners. Avoid nested review containers.
+Controls use the control radius. Review sections are flat, without an enclosing border or radius. Small thumbnails use tighter corners. Avoid nested review containers.
 
 ## Components
 
-Buttons have a visible focus outline, a 38px minimum height, and explicit disabled states. Secondary buttons use a neutral fill and thin border. Keyboard focus uses a 2px accent outline with a 3px offset.
+Shared buttons use 36px height at desktop sizes and 44px below the md breakpoint or with coarse pointers. Supporting buttons use a neutral fill and thin border. Keyboard focus uses the package’s 2px ring. Disabled controls use the shared disabled tokens.
 
 Native inputs have persistent labels. Approval uses Svelte state while the command persists, then reconciles with stored state. Unsaved wording prevents approval. File buttons retain visible keyboard focus. Reduced-motion settings are respected; progress updates do not animate layout.
 

@@ -15,6 +15,10 @@
         "value": "600px"
       },
       {
+        "name": "composer-stacked",
+        "value": "700px"
+      },
+      {
         "name": "wide",
         "value": "800px"
       }
@@ -34,7 +38,12 @@
       "theme": "dither",
       "themePicker": false,
       "appearance": "system",
-      "fonts": ["Geist Variable", "Geist Mono Variable", "Manrope Variable"]
+      "fonts": ["Geist Variable", "Geist Mono Variable", "Manrope Variable"],
+      "sources": [
+        "packages/ui/src/lib/themes/builtins/dither.ts",
+        "packages/ui/src/lib/components/button/button.svelte",
+        "packages/ui/src/lib/style.css"
+      ]
     }
   },
   "components": [
@@ -42,17 +51,17 @@
       "name": "Focal action",
       "kind": "button",
       "refersTo": "button-primary",
-      "description": "Shared OpenPost Button with focal intent.",
-      "html": "<button class=\"ds-focal\">Generate</button>",
-      "css": ".ds-focal{font:600 14px \"Geist Variable\",sans-serif;background:var(--action-focal,oklch(.4 .13 45));color:var(--action-focal-foreground,white);border:1px solid var(--action-focal);border-radius:var(--theme-radius-md,6px);min-height:var(--theme-control-height,36px);padding:6px 12px}"
+      "description": "Shared OpenPost Button with focal intent. Preview uses shared tokens; runtime styles come from the package.",
+      "html": "<button class=\"ds-focal\" data-action-intent=\"focal\">Generate</button>",
+      "css": ".ds-focal{position:relative;overflow:hidden;isolation:isolate;font:600 14px \"Geist Variable\",sans-serif;background:var(--action-focal);color:var(--action-focal-foreground);border:1px solid var(--action-focal);border-radius:var(--theme-radius-md,6px);height:var(--theme-control-height,36px);padding:0 12px;transition:background-color 150ms,transform 150ms}.ds-focal:hover{background:var(--action-focal-hover)}.ds-focal:active{background:var(--action-focal-active);transform:translateY(var(--theme-press-distance))}.ds-focal:focus-visible{outline:2px solid var(--ring);outline-offset:2px}.ds-focal:disabled{background:var(--disabled);color:var(--disabled-foreground)}@media(max-width:767px),(pointer:coarse){.ds-focal{height:44px}}@media(prefers-reduced-motion:reduce){.ds-focal{transition:none}}"
     },
     {
       "name": "Ordinary action",
       "kind": "button",
       "refersTo": "button-secondary",
-      "description": "Shared supporting action.",
-      "html": "<button class=\"ds-ordinary\">Download</button>",
-      "css": ".ds-ordinary{font:500 14px \"Geist Variable\",sans-serif;background:var(--action-ordinary);color:var(--action-ordinary-foreground);border:1px solid var(--action-ordinary-border);border-radius:var(--theme-radius-md,6px);min-height:var(--theme-control-height,36px);padding:6px 12px}"
+      "description": "Shared supporting action. Preview uses shared tokens; runtime styles come from the package.",
+      "html": "<button class=\"ds-ordinary\" data-action-intent=\"ordinary\">Download</button>",
+      "css": ".ds-ordinary{position:relative;overflow:hidden;isolation:isolate;font:600 14px \"Geist Variable\",sans-serif;background:var(--action-ordinary);color:var(--action-ordinary-foreground);border:1px solid var(--action-ordinary-border);border-radius:var(--theme-radius-md,6px);height:var(--theme-control-height,36px);padding:0 12px;transition:background-color 150ms,transform 150ms}.ds-ordinary:hover{background:var(--action-ordinary-hover)}.ds-ordinary:active{background:var(--action-ordinary-active);transform:translateY(var(--theme-press-distance))}.ds-ordinary:focus-visible{outline:2px solid var(--ring);outline-offset:2px}.ds-ordinary:disabled{background:var(--disabled);color:var(--disabled-foreground)}@media(max-width:767px),(pointer:coarse){.ds-ordinary{height:44px}}@media(prefers-reduced-motion:reduce){.ds-ordinary{transition:none}}"
     }
   ],
   "narrative": {
