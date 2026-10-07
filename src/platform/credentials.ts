@@ -1,3 +1,5 @@
+import { readVault, saveVault, clearVault } from './credential-vault';
+import { extensionApi } from './webextension';
 import { z } from 'zod';
 const credentialsSchema = z.object({
   textKey: z.string().max(2000).default(''),
@@ -5,18 +7,26 @@ const credentialsSchema = z.object({
   imageKey: z.string().max(2000).default(''),
 });
 export type Credentials = z.infer<typeof credentialsSchema>;
+function privatePersistence() {
+  return typeof extensionApi().storage.local.setAccessLevel !== 'function';
+}
 export async function restrictStorage() {
-  await Promise.all([
-    chrome.storage.local.setAccessLevel({ accessLevel: 'TRUSTED_CONTEXTS' }),
-    chrome.storage.session.setAccessLevel({ accessLevel: 'TRUSTED_CONTEXTS' }),
-  ]);
+  for (const area of [
+    extensionApi().storage.local,
+    extensionApi().storage.session,
+  ])
+    if (typeof area.setAccessLevel === 'function')
+      await area.setAccessLevel({ accessLevel: 'TRUSTED_CONTEXTS' });
 }
 export async function credentials(): Promise<Credentials> {
   await restrictStorage();
-  const session = await chrome.storage.session.get('credentials');
+  const session = await extensionApi().storage.session.get('credentials');
   if (session.credentials) return credentialsSchema.parse(session.credentials);
   return credentialsSchema.parse(
-    (await chrome.storage.local.get('credentials')).credentials ?? {},
+    (privatePersistence()
+      ? await readVault()
+      : (await extensionApi().storage.local.get('credentials')).credentials) ??
+      {},
   );
 }
 export async function saveCredentials(
@@ -27,14 +37,20 @@ export async function saveCredentials(
   await restrictStorage();
   const parsed = credentialsSchema.parse(value);
   // Remove the persistent copy before switching to a session-only policy.
-  if (!remember) await chrome.storage.local.remove('credentials');
-  await chrome.storage.session.set({ credentials: parsed });
-  if (remember) await chrome.storage.local.set({ credentials: parsed });
+  if (!remember) await extensionApi().storage.local.remove('credentials');
+  await extensionApi().storage.session.set({ credentials: parsed });
+  if (privatePersistence()) {
+    await extensionApi().storage.local.remove('credentials');
+    if (remember) await saveVault(parsed);
+    else await clearVault();
+  } else if (remember)
+    await extensionApi().storage.local.set({ credentials: parsed });
 }
 export async function forgetCredentials() {
+  if (privatePersistence()) await clearVault();
   await Promise.all([
-    chrome.storage.local.remove('credentials'),
-    chrome.storage.session.remove('credentials'),
+    extensionApi().storage.local.remove('credentials'),
+    extensionApi().storage.session.remove('credentials'),
   ]);
 }
 export function providerBase(value: string) {

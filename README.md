@@ -18,7 +18,7 @@ npm run build
 4. Pin YouTube Localizer and click its icon to open the side panel.
 5. Open YouTube Studio in English. This first version stops on unsupported Studio layouts rather than guessing controls.
 
-`npm run package` creates `artifacts/youtube-localizer-0.4.0.zip`. Extract it and load the extracted folder. The ZIP is also suitable for a future store submission, after the live pilot and publication checks below.
+`npm run package` creates `artifacts/youtube-localizer-0.5.0.zip`. Extract it and load the extracted folder. The ZIP is also suitable for a future store submission, after the live pilot and publication checks below.
 
 ## Use it
 
@@ -108,3 +108,13 @@ This is an initial implementation for local pilot testing, not a store release. 
 A real scheduled-video pilot is required before publishing. Follow [docs/pilot.md](docs/pilot.md). Real text dialogs, thumbnail uploads, provider billing, schedule preservation and interruption recovery must be verified on the chosen pilot video. Browser fixtures do not establish those live facts. Thumbnail application remains **Needs verification** when Studio's processed image cannot be identified conclusively.
 
 The working name and YouTube-related naming must be checked before public/store publication. This project is intended for `getopenpost/youtube-localizer`; it does not require or modify the OpenPost repository.
+
+## Shared UI
+
+The static extension pages use Svelte 5 and OpenPost’s shared UI package. Orange Dither is fixed; light and dark appearance follows the system. Build dependencies are versioned archives in `vendor/`, so installation does not need a sibling OpenPost checkout. See [the architecture](docs/architecture.md) for package updates.
+
+## Firefox
+
+Run `npm run package:firefox` for the Firefox archive. Firefox uses a sidebar and an event background document; generation, references and local Layerize composition use the same core code. Firefox 142 or later handles data consent at installation.
+
+The Firefox release workflow submits version tags or manual runs to Mozilla Add-ons through `web-ext sign`. Configure `AMO_API_KEY` and `AMO_API_SECRET` in the repository’s `firefox` environment. Mozilla may review submissions before listing them. No store listing has been created by this build.

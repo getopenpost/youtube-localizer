@@ -1,51 +1,62 @@
 {
   "name": "@getopenpost/youtube-localizer",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "private": true,
   "type": "module",
   "description": "Localize YouTube titles, descriptions and thumbnails with your own AI providers.",
   "scripts": {
     "dev": "vite --host 127.0.0.1",
-    "build": "tsc --noEmit && node scripts/build.mjs",
-    "check": "tsc --noEmit && eslint . && prettier --check .",
+    "build": "svelte-check --tsconfig ./tsconfig.json && tsc --noEmit && node scripts/build.mjs",
+    "check": "svelte-check --tsconfig ./tsconfig.json && tsc --noEmit && eslint . && prettier --check .",
     "format": "prettier --write .",
     "test": "vitest run",
-    "test:browser": "npm run build && playwright test",
+    "test:browser": "npm run build && node scripts/firefox.mjs && playwright test",
     "verify": "npm run check && npm test && npm run test:browser",
-    "package": "npm run build && node scripts/package.mjs"
+    "package": "npm run build && node scripts/package.mjs",
+    "build:firefox": "npm run build && node scripts/firefox.mjs",
+    "check:firefox": "npm run build:firefox && web-ext lint --source-dir dist-firefox",
+    "package:firefox": "npm run build:firefox && node scripts/package.mjs firefox"
   },
   "engines": {
     "node": ">=24"
   },
   "dependencies": {
+    "@fontsource-variable/geist": "^5.2.8",
+    "@fontsource-variable/geist-mono": "^5.2.8",
+    "@fontsource-variable/manrope": "^5.2.8",
     "@fontsource/geist": "^5.3.0",
+    "@openpost/dither": "file:vendor/openpost-dither-0.1.0.tgz",
+    "@openpost/ui": "file:vendor/openpost-ui-0.1.0.tgz",
     "dompurify": "^3.4.16",
     "fflate": "^0.8.3",
     "idb": "^8.0.4",
-    "lucide-react": "^1.52.0",
     "openai": "^7.30.0",
-    "react": "^19.3.0",
-    "react-dom": "^19.3.0",
+    "svelte": "^5.51.0",
     "zod": "^4.6.5"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.13.0",
     "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.63.0",
+    "@sveltejs/vite-plugin-svelte": "^7.3.0",
+    "@tailwindcss/vite": "^4.1.18",
     "@types/chrome": "^0.3.4",
     "@types/node": "^26.6.4",
-    "@types/react": "^19.3.0",
-    "@types/react-dom": "^19.3.0",
-    "@vitejs/plugin-react": "^6.1.2",
     "esbuild": "^0.28.2",
     "eslint": "^10.12.0",
-    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-svelte": "^3.14.0",
     "fake-indexeddb": "^6.2.5",
+    "globals": "^17.3.0",
     "jsdom": "^30.1.2",
     "prettier": "^3.9.9",
+    "prettier-plugin-svelte": "^4.1.1",
+    "svelte-check": "^4.4.2",
+    "tailwindcss": "^4.1.18",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.71.1",
     "vite": "^8.3.3",
-    "vitest": "^5.0.3"
-  }
+    "vitest": "^5.0.3",
+    "web-ext": "^10.7.0"
+  },
+  "license": "AGPL-3.0-only"
 }

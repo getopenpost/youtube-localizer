@@ -1,3 +1,4 @@
+import { extensionApi } from '../platform/webextension';
 import { installThumbnailButton } from './thumbnail-button';
 import { z } from 'zod';
 import { componentSchema } from '../core/model';
@@ -46,51 +47,53 @@ const commandSchema = z.discriminatedUnion('type', [
   }),
 ]);
 const writer = new StudioWriter(async (epoch) => {
-  const response = await chrome.runtime.sendMessage({
+  const response = await extensionApi().runtime.sendMessage({
     type: 'writer-active',
     epoch,
   });
   return response?.active === true;
 });
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (sender.id !== chrome.runtime.id) return;
-  const parsed = commandSchema.safeParse(message);
-  if (!parsed.success) return;
-  const command = parsed.data;
-  const task = async () => {
-    switch (command.type) {
-      case 'discover':
-        return discover();
-      case 'thumbnail-context':
-        return readThumbnailContext(command.channelId, command.videoId);
-      case 'details':
-        return readDetails(command.channelId, command.videoId);
-      case 'translations':
-        return readTranslations(
-          command.channelId,
-          command.videoId,
-          command.languages,
-        );
-      case 'read-text':
-        return writer.readText(
-          command.channelId,
-          command.videoId,
-          command.language,
-        );
-      case 'write':
-        return writer.apply(command);
-    }
-  };
-  void task()
-    .then((data) => sendResponse({ ok: true, data }))
-    .catch((error) =>
-      sendResponse({
-        ok: false,
-        error:
-          error instanceof Error ? error.message : 'Studio operation failed.',
-      }),
-    );
-  return true;
-});
+extensionApi().runtime.onMessage.addListener(
+  (message, sender, sendResponse) => {
+    if (sender.id !== extensionApi().runtime.id) return;
+    const parsed = commandSchema.safeParse(message);
+    if (!parsed.success) return;
+    const command = parsed.data;
+    const task = async () => {
+      switch (command.type) {
+        case 'discover':
+          return discover();
+        case 'thumbnail-context':
+          return readThumbnailContext(command.channelId, command.videoId);
+        case 'details':
+          return readDetails(command.channelId, command.videoId);
+        case 'translations':
+          return readTranslations(
+            command.channelId,
+            command.videoId,
+            command.languages,
+          );
+        case 'read-text':
+          return writer.readText(
+            command.channelId,
+            command.videoId,
+            command.language,
+          );
+        case 'write':
+          return writer.apply(command);
+      }
+    };
+    void task()
+      .then((data) => sendResponse({ ok: true, data }))
+      .catch((error) =>
+        sendResponse({
+          ok: false,
+          error:
+            error instanceof Error ? error.message : 'Studio operation failed.',
+        }),
+      );
+    return true;
+  },
+);
 
 installThumbnailButton();

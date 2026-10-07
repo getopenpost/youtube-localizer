@@ -1,3 +1,4 @@
+import { extensionApi } from '../platform/webextension';
 import {
   snapshotSchema,
   studioContextSchema,
@@ -18,7 +19,7 @@ const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 export class StudioBridge {
   constructor(private readonly repo: Repository) {}
   private async send(tabId: number, message: unknown): Promise<unknown> {
-    const result = await chrome.tabs.sendMessage(tabId, message);
+    const result = await extensionApi().tabs.sendMessage(tabId, message);
     if (!result?.ok)
       throw new Error(
         result?.error ??
@@ -28,7 +29,7 @@ export class StudioBridge {
   }
   async discover(channelId?: string): Promise<StudioContext> {
     const account = channelId ? await this.repo.account(channelId) : undefined;
-    const tabs = await chrome.tabs.query(
+    const tabs = await extensionApi().tabs.query(
       channelId ? {} : { active: true, currentWindow: true },
     );
     const candidates = tabs.filter(
@@ -67,7 +68,7 @@ export class StudioBridge {
     );
   }
   async composerVideo(tabId: number): Promise<Video> {
-    const tab = await chrome.tabs.get(tabId);
+    const tab = await extensionApi().tabs.get(tabId);
     const url = tab.url ? new URL(tab.url) : undefined;
     const id = url?.pathname.match(/^\/video\/([\w-]{11})\/edit\/?$/)?.[1];
     if (url?.origin !== 'https://studio.youtube.com' || !id)
@@ -83,7 +84,7 @@ export class StudioBridge {
       }),
     );
     if (
-      (await chrome.tabs.get(tabId)).url !== tab.url ||
+      (await extensionApi().tabs.get(tabId)).url !== tab.url ||
       video.id !== id ||
       video.channelId !== context.channelId
     )
@@ -109,7 +110,7 @@ export class StudioBridge {
     if (tabId) {
       let tab: chrome.tabs.Tab | undefined;
       try {
-        tab = await chrome.tabs.get(tabId);
+        tab = await extensionApi().tabs.get(tabId);
       } catch {
         tabId = undefined;
       }
@@ -137,7 +138,10 @@ export class StudioBridge {
       );
       if (account.authuser !== undefined)
         url.searchParams.set('authuser', account.authuser);
-      const tab = await chrome.tabs.create({ url: url.href, active: true });
+      const tab = await extensionApi().tabs.create({
+        url: url.href,
+        active: true,
+      });
       if (!tab.id) throw new Error('Could not open Studio.');
       tabId = tab.id;
       await delay(1200);
@@ -159,7 +163,7 @@ export class StudioBridge {
     videoId: string,
     route: 'edit' | 'translations',
   ) {
-    const tab = await chrome.tabs.get(tabId);
+    const tab = await extensionApi().tabs.get(tabId);
     if (!tab.url?.startsWith('https://studio.youtube.com/'))
       throw new Error(
         'The dedicated Studio working tab changed. Check it before continuing.',
@@ -184,12 +188,12 @@ export class StudioBridge {
     );
     if (authuser !== null) destination.searchParams.set('authuser', authuser);
     const url = destination.href;
-    await chrome.tabs.update(tabId, { url });
+    await extensionApi().tabs.update(tabId, { url });
     let lastError = 'Studio did not load.';
     for (let attempt = 0; attempt < 50; attempt++) {
       await delay(200);
       try {
-        const loaded = await chrome.tabs.get(tabId);
+        const loaded = await extensionApi().tabs.get(tabId);
         if (loaded.status !== 'complete' || loaded.url !== url) continue;
         const context = studioContextSchema.parse(
           await this.send(tabId, { type: 'discover' }),
@@ -258,7 +262,7 @@ export class StudioBridge {
       throw new Error(
         'Run a preflight check to open the dedicated Studio working tab.',
       );
-    const tab = await chrome.tabs.get(run.workingTabId);
+    const tab = await extensionApi().tabs.get(run.workingTabId);
     if (!tab.active)
       throw new Error(
         'Select the dedicated Studio working tab before applying translations.',

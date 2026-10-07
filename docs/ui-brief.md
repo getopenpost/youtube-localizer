@@ -4,7 +4,7 @@
 
 THESIS: Make evidence and the next action visible in a narrow Studio companion. Rows expose video and component state without turning discovery into a scan.
 
-OWN-WORLD: Warm neutral surfaces, charcoal lettering, burnt-orange primary controls, thin row separators, local Geist Sans, and precise status labels. OS dark mode follows the same hierarchy.
+OWN-WORLD: OpenPost’s fixed orange Dither theme, shared Svelte controls and icons, warm surfaces, local Geist, Geist Mono and Manrope, and precise status labels. OS dark mode follows the same hierarchy.
 
 STORY: Choose a channel and saved languages, select the visible videos, check the gaps, generate, then review before applying. Errors keep the work accessible.
 
@@ -28,6 +28,10 @@ TASK: Open a video, choose saved person/brand/style references, describe a thumb
 
 FIRST VIEWPORT: Video context and a short direction form on the left, the generated image on the right. Saved references are compact image selectors. The Generate action sits below them. Narrow screens show a completed result first; an empty result yields that space to the form.
 
-STATES: Empty library, selected references, local upload, active generation, completed variants, missing credentials and ambiguous paid outcomes. Context, reference management and connection controls use disclosures. Reopening keeps cached variants. Download and localization-source selection are the result actions.
+STATES: Empty library, selected references, local upload, active generation, completed variants, missing credentials and ambiguous paid outcomes. Reference management and connection controls use disclosures. Reopening keeps cached variants. Download and localization-source selection are the result actions.
 
 PROOF: Isolated packaged-browser tests cover Studio launch, selected-image transport, reload, download, source selection, ambiguity and accessibility. Paid-provider likeness/fidelity remains a live pilot gate.
+
+## Shared design system
+
+OpenPost’s `packages/ui` owns the theme and controls. This repository owns view composition and extension workflow state. Keep one next action, advanced settings in disclosures, and promotion in About. No theme picker.

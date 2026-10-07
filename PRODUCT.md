@@ -8,7 +8,7 @@ Web, as a standalone Manifest V3 extension for Chrome and Chromium.
 
 ## Stack
 
-Delegated by the implementation request. TypeScript, React, Vite, IndexedDB through idb, Zod for external data, and fflate for portable ZIP archives. No application server.
+TypeScript, Svelte 5, Vite, IndexedDB through idb, Zod for external data, and fflate for portable ZIP archives. No application server.
 
 ## Users and purpose
 

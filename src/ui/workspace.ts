@@ -1,6 +1,6 @@
 import type { Reference, Creation } from '../thumbnails/model';
 import type { LayerTemplate } from '../layers/model';
-import { useSyncExternalStore } from 'react';
+import { readable } from 'svelte/store';
 import { repository } from '../core/storage';
 import {
   defaultRun,
@@ -112,6 +112,7 @@ function subscribe(listener: () => void) {
     }
   };
 }
-export function useWorkspace() {
-  return { ...useSyncExternalStore(subscribe, () => snapshot), refresh };
-}
+export const workspaceStore = readable(snapshot, (set) =>
+  subscribe(() => set(snapshot)),
+);
+export { refresh };

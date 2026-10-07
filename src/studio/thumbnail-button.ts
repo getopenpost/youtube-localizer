@@ -1,3 +1,4 @@
+import { extensionApi } from '../platform/webextension';
 export function installThumbnailButton() {
   let host: HTMLElement | undefined;
   let scheduled = false;
@@ -36,7 +37,7 @@ export function installThumbnailButton() {
       button.disabled = true;
       status.textContent = '';
       try {
-        const result = await chrome.runtime.sendMessage({
+        const result = await extensionApi().runtime.sendMessage({
           type: 'thumbnail-open',
         });
         if (!result?.ok)

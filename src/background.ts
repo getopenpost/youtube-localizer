@@ -1,3 +1,4 @@
+import { extensionApi } from './platform/webextension';
 import { generateThumbnail, recoverCreations } from './thumbnails/coordinator';
 import { defaultRun, hash, preferencesSchema, type Job } from './core/model';
 import { repository as repo } from './core/storage';
@@ -131,15 +132,18 @@ const kick = () => {
       advancing = false;
     });
 };
-chrome.runtime.onInstalled.addListener(() => {
-  void chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
-  void chrome.alarms.create('localizer-tick', { periodInMinutes: 0.5 });
+extensionApi().runtime.onInstalled.addListener(() => {
+  if (extensionApi().sidePanel)
+    void extensionApi().sidePanel.setPanelBehavior({
+      openPanelOnActionClick: true,
+    });
+  void extensionApi().alarms.create('localizer-tick', { periodInMinutes: 0.5 });
 });
-chrome.runtime.onStartup.addListener(() => {
-  void chrome.alarms.create('localizer-tick', { periodInMinutes: 0.5 });
+extensionApi().runtime.onStartup.addListener(() => {
+  void extensionApi().alarms.create('localizer-tick', { periodInMinutes: 0.5 });
   kick();
 });
-chrome.alarms.onAlarm.addListener((alarm) => {
+extensionApi().alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === 'localizer-tick') kick();
 });
 async function getJob(id: string): Promise<Job> {
@@ -346,7 +350,9 @@ async function execute(value: Command): Promise<unknown> {
         requestLimit: (await repo.settings()).provider.requestLimit,
       };
       await repo.putRun(run);
-      void chrome.alarms.create('localizer-tick', { periodInMinutes: 0.5 });
+      void extensionApi().alarms.create('localizer-tick', {
+        periodInMinutes: 0.5,
+      });
       return;
     }
     case 'pause':
@@ -656,145 +662,165 @@ async function execute(value: Command): Promise<unknown> {
     }
   }
 }
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (sender.id !== chrome.runtime.id) return;
-  if (sender.tab && sender.url?.startsWith('https://studio.youtube.com/')) {
-    if (
-      message?.type === 'thumbnail-open' &&
-      sender.frameId === 0 &&
-      sender.tab.id &&
-      /^https:\/\/studio\.youtube\.com\/video\/[\w-]{11}\/edit(?:[?].*)?$/.test(
-        sender.url,
-      )
-    ) {
-      const tabId = sender.tab.id;
-      void ready
-        .then(() =>
-          navigator.locks.request('localizer-coordinator', async () => {
-            await assertPaused();
-            const video = await bridge.composerVideo(tabId);
-            const known = await repo.video(video.id);
-            let cached;
-            if (video.thumbnailUrl)
-              try {
-                cached = await imageAsset(
-                  await fetchImage(video.thumbnailUrl, 'studio'),
-                );
-                await repo.putAsset(cached);
-              } catch {
-                /* References and text-only generation remain available. */
-              }
-            const changed =
-              known &&
-              (known.title !== video.title ||
-                known.description !== video.description ||
-                known.visibility !== video.visibility ||
-                known.scheduledAt !== video.scheduledAt ||
-                (cached && known.studioThumbnailHash !== cached.hash));
-            await repo.putVideo({
-              ...known,
-              ...video,
-              checkedAt: changed ? undefined : known?.checkedAt,
-              sourceHashes: changed ? undefined : known?.sourceHashes,
-              thumbnailAssetId:
-                known?.thumbnailOrigin === 'chosen'
-                  ? known.thumbnailAssetId
-                  : cached?.id,
-              studioThumbnailHash: cached?.hash ?? known?.studioThumbnailHash,
-              thumbnailOrigin: known?.thumbnailOrigin,
-              thumbnailWidth:
-                known?.thumbnailOrigin === 'chosen'
-                  ? known.thumbnailWidth
-                  : cached?.width,
-              thumbnailHeight:
-                known?.thumbnailOrigin === 'chosen'
-                  ? known.thumbnailHeight
-                  : cached?.height,
-              thumbnailText: known?.thumbnailText,
-              thumbnailTextApproved: changed
-                ? false
-                : (known?.thumbnailTextApproved ?? false),
-            });
-            const url = new URL(chrome.runtime.getURL('thumbnail.html'));
-            url.searchParams.set('video', video.id);
-            url.searchParams.set('channel', video.channelId);
-            await chrome.tabs.create({ url: url.href, active: true });
-          }),
+extensionApi().runtime.onMessage.addListener(
+  (message, sender, sendResponse) => {
+    if (sender.id !== extensionApi().runtime.id) return;
+    if (sender.tab && sender.url?.startsWith('https://studio.youtube.com/')) {
+      if (
+        message?.type === 'thumbnail-open' &&
+        sender.frameId === 0 &&
+        sender.tab.id &&
+        /^https:\/\/studio\.youtube\.com\/video\/[\w-]{11}\/edit(?:[?].*)?$/.test(
+          sender.url,
         )
-        .then(() => sendResponse({ ok: true }))
-        .catch((error) =>
+      ) {
+        const tabId = sender.tab.id;
+        void ready
+          .then(() =>
+            navigator.locks.request('localizer-coordinator', async () => {
+              await assertPaused();
+              const video = await bridge.composerVideo(tabId);
+              const known = await repo.video(video.id);
+              let cached;
+              if (video.thumbnailUrl)
+                try {
+                  cached = await imageAsset(
+                    await fetchImage(video.thumbnailUrl, 'studio'),
+                  );
+                  await repo.putAsset(cached);
+                } catch {
+                  /* References and text-only generation remain available. */
+                }
+              const changed =
+                known &&
+                (known.title !== video.title ||
+                  known.description !== video.description ||
+                  known.visibility !== video.visibility ||
+                  known.scheduledAt !== video.scheduledAt ||
+                  (cached && known.studioThumbnailHash !== cached.hash));
+              await repo.putVideo({
+                ...known,
+                ...video,
+                checkedAt: changed ? undefined : known?.checkedAt,
+                sourceHashes: changed ? undefined : known?.sourceHashes,
+                thumbnailAssetId:
+                  known?.thumbnailOrigin === 'chosen'
+                    ? known.thumbnailAssetId
+                    : cached?.id,
+                studioThumbnailHash: cached?.hash ?? known?.studioThumbnailHash,
+                thumbnailOrigin: known?.thumbnailOrigin,
+                thumbnailWidth:
+                  known?.thumbnailOrigin === 'chosen'
+                    ? known.thumbnailWidth
+                    : cached?.width,
+                thumbnailHeight:
+                  known?.thumbnailOrigin === 'chosen'
+                    ? known.thumbnailHeight
+                    : cached?.height,
+                thumbnailText: known?.thumbnailText,
+                thumbnailTextApproved: changed
+                  ? false
+                  : (known?.thumbnailTextApproved ?? false),
+              });
+              const url = new URL(
+                extensionApi().runtime.getURL('thumbnail.html'),
+              );
+              url.searchParams.set('video', video.id);
+              url.searchParams.set('channel', video.channelId);
+              await extensionApi().tabs.create({ url: url.href, active: true });
+            }),
+          )
+          .then(() => sendResponse({ ok: true }))
+          .catch((error) =>
+            sendResponse({
+              ok: false,
+              error:
+                error instanceof Error
+                  ? error.message
+                  : 'Could not open the composer.',
+            }),
+          );
+        return true;
+      }
+      if (
+        message?.type === 'writer-active' &&
+        typeof message.epoch === 'number'
+      ) {
+        void repo.run().then((run) =>
           sendResponse({
-            ok: false,
-            error:
-              error instanceof Error
-                ? error.message
-                : 'Could not open the composer.',
+            active:
+              sender.frameId === 0 &&
+              run.mode === 'apply' &&
+              run.epoch === message.epoch &&
+              sender.tab?.id === run.workingTabId &&
+              new URL(sender.url!).searchParams.get('authuser') ===
+                (run.authuser ?? null),
           }),
         );
+        return true;
+      }
+      return;
+    }
+    const trustedPages = [
+      'sidepanel.html',
+      'review.html',
+      'options.html',
+      'thumbnail.html',
+    ].map((page) => extensionApi().runtime.getURL(page));
+    const senderUrl = sender.url;
+    if (
+      !senderUrl ||
+      !trustedPages.some(
+        (url) => senderUrl === url || senderUrl.startsWith(`${url}?`),
+      )
+    )
+      return;
+    const parsed = commandSchema.safeParse(message);
+    if (!parsed.success) {
+      sendResponse({ ok: false, error: 'Invalid extension command.' });
+      return;
+    }
+    if (parsed.data.type === 'pause') {
+      void repo.pause().then(() => sendResponse({ ok: true }));
       return true;
     }
-    if (
-      message?.type === 'writer-active' &&
-      typeof message.epoch === 'number'
-    ) {
-      void repo.run().then((run) =>
+    void ready
+      .then(() =>
+        navigator.locks.request('localizer-coordinator', () =>
+          execute(parsed.data),
+        ),
+      )
+      .then((data) => {
+        sendResponse({ ok: true, data });
+        if (
+          ['generate', 'apply', 'prepare-template', 'retry-template'].includes(
+            parsed.data.type,
+          )
+        )
+          kick();
+      })
+      .catch((error) =>
         sendResponse({
-          active:
-            sender.frameId === 0 &&
-            run.mode === 'apply' &&
-            run.epoch === message.epoch &&
-            sender.tab?.id === run.workingTabId &&
-            new URL(sender.url!).searchParams.get('authuser') ===
-              (run.authuser ?? null),
+          ok: false,
+          error:
+            error instanceof Error ? error.message : 'The operation failed.',
         }),
       );
-      return true;
-    }
-    return;
-  }
-  const trustedPages = [
-    'sidepanel.html',
-    'review.html',
-    'options.html',
-    'thumbnail.html',
-  ].map((page) => chrome.runtime.getURL(page));
-  const senderUrl = sender.url;
-  if (
-    !senderUrl ||
-    !trustedPages.some(
-      (url) => senderUrl === url || senderUrl.startsWith(`${url}?`),
-    )
-  )
-    return;
-  const parsed = commandSchema.safeParse(message);
-  if (!parsed.success) {
-    sendResponse({ ok: false, error: 'Invalid extension command.' });
-    return;
-  }
-  if (parsed.data.type === 'pause') {
-    void repo.pause().then(() => sendResponse({ ok: true }));
     return true;
-  }
-  void ready
-    .then(() =>
-      navigator.locks.request('localizer-coordinator', () =>
-        execute(parsed.data),
-      ),
-    )
-    .then((data) => {
-      sendResponse({ ok: true, data });
-      if (
-        ['generate', 'apply', 'prepare-template', 'retry-template'].includes(
-          parsed.data.type,
-        )
-      )
-        kick();
-    })
-    .catch((error) =>
-      sendResponse({
-        ok: false,
-        error: error instanceof Error ? error.message : 'The operation failed.',
-      }),
-    );
-  return true;
-});
+  },
+);
+
+if (!extensionApi().sidePanel) {
+  extensionApi().action.onClicked.addListener(() => {
+    const sidebar = (
+      extensionApi() as typeof chrome & {
+        sidebarAction?: { open(): Promise<void> };
+      }
+    ).sidebarAction;
+    if (sidebar) void sidebar.open();
+    else
+      void extensionApi().tabs.create({
+        url: extensionApi().runtime.getURL('sidepanel.html'),
+      });
+  });
+}

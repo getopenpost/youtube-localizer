@@ -85,9 +85,7 @@ test('prepares text layers once, resumes its saved receipt, then renders German 
   });
   const review = await context.newPage();
   await review.goto(`chrome-extension://${extensionId}/review.html`);
-  await review
-    .getByRole('button', { name: 'Prepare editable text · paid once' })
-    .click();
+  await review.getByRole('button', { name: 'Prepare text layers' }).click();
   await expect.poll(() => paid).toBe(1);
   await expect(review.getByText('Preparing editable text…')).toBeVisible();
   await review.reload();
@@ -283,4 +281,23 @@ test('prepares text layers once, resumes its saved receipt, then renders German 
       () => document.documentElement.scrollWidth <= innerWidth,
     ),
   ).toBe(true);
+  const textBox = review.getByRole('combobox', { name: /^Text box/ });
+  await expect(textBox).toBeVisible();
+  const priorCount = await textBox.locator('option').count();
+  expect(priorCount).toBeGreaterThan(0);
+  await review
+    .getByRole('button', { name: 'Add text box', exact: true })
+    .click();
+  await expect(textBox).toHaveValue(String(priorCount));
+  await expect(
+    review.getByLabel('Layer fontSize', { exact: true }),
+  ).toBeVisible();
+  await review
+    .getByRole('combobox', { name: 'Font', exact: true })
+    .selectOption('Geist');
+  expect(
+    await review.evaluate(
+      async () => (await document.fonts.load('400 16px "Geist"')).length,
+    ),
+  ).toBeGreaterThan(0);
 });

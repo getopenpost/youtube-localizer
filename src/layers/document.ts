@@ -1,3 +1,4 @@
+import { extensionApi } from '../platform/webextension';
 import '@fontsource/geist/400.css';
 import '@fontsource/geist/600.css';
 import { z } from 'zod';
@@ -22,8 +23,11 @@ const schema = z.discriminatedUnion('type', [
     locale: z.string(),
   }),
 ]);
-chrome.runtime.onMessage.addListener((message, sender, reply) => {
-  if (sender.id !== chrome.runtime.id || sender.url?.startsWith('https:'))
+extensionApi().runtime.onMessage.addListener((message, sender, reply) => {
+  if (
+    sender.id !== extensionApi().runtime.id ||
+    sender.url?.startsWith('https:')
+  )
     return;
   const parsed = schema.safeParse(message);
   if (!parsed.success) return;

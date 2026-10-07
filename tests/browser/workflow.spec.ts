@@ -294,6 +294,45 @@ test('outside Studio has a usable empty state and narrow settings stay accessibl
     }
 });
 
+test('saved language choices remain readable at narrow widths in both appearance schemes', async ({
+  context,
+  extensionId,
+  studioState,
+}) => {
+  void studioState;
+  const selection = await openSelection(context, extensionId);
+  const panel = selection.panel;
+  await expect(panel.locator('html')).toHaveAttribute(
+    'data-theme-id',
+    'dither',
+  );
+  await panel.setViewportSize({ width: 320, height: 900 });
+  await send(selection.panel, {
+    type: 'preferences',
+    preferences: {
+      channelId: CHANNEL,
+      sourceLanguage: 'pt',
+      targetLanguages: ['en', 'fr'],
+      components: ['title'],
+      glossary: '',
+    },
+  });
+  for (const mode of ['light', 'dark'] as const) {
+    await panel.emulateMedia({ colorScheme: mode });
+    await panel.goto(`chrome-extension://${extensionId}/options.html`);
+    await expect(
+      panel.getByRole('button', { name: 'Remove English' }),
+    ).toBeVisible();
+    expect(
+      (
+        await new AxeBuilder({ page: panel })
+          .withTags(['wcag2a', 'wcag2aa', 'wcag21aa'])
+          .analyze()
+      ).violations,
+    ).toEqual([]);
+  }
+});
+
 for (const model of [
   'fal-ai/nano-banana-pro/edit',
   'ideogram/v4.5/edit',
@@ -480,9 +519,7 @@ test('thumbnail text extraction is cached across reopening the workspace without
   });
   const review = await context.newPage();
   await review.goto(`chrome-extension://${extensionId}/review.html`);
-  await review
-    .getByRole('button', { name: 'Read with AI · paid', exact: true })
-    .click();
+  await review.getByRole('button', { name: 'Read text', exact: true }).click();
   await expect(
     review.getByLabel('Source thumbnail text for Aprender ao teu ritmo'),
   ).toHaveValue('APRENDER');

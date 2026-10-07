@@ -5,3 +5,5 @@ playwright-report
 .impeccable/review
 package-lock.json
 artifacts
+
+dist-firefox/

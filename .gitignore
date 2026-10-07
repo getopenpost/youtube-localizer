@@ -9,3 +9,5 @@ artifacts/
 test-results/
 playwright-report/
 .impeccable/review/
+
+dist-firefox/

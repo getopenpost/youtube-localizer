@@ -1,3 +1,4 @@
+import { extensionApi } from './webextension';
 import { referenceSchema, MAX_REFERENCES } from '../thumbnails/model';
 import { layerSchema } from '../layers/model';
 import { z } from 'zod';
@@ -90,7 +91,7 @@ export const commandSchema = z.discriminatedUnion('type', [
 ]);
 export type Command = z.infer<typeof commandSchema>;
 export async function command<T = unknown>(value: Command): Promise<T> {
-  const result = await chrome.runtime.sendMessage(value);
+  const result = await extensionApi().runtime.sendMessage(value);
   if (!result?.ok)
     throw new Error(
       result?.error ?? 'The extension did not respond. Reload it and retry.',

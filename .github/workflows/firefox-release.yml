@@ -1,0 +1,37 @@
+name: Submit Firefox release
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  firefox:
+    runs-on: ubuntu-latest
+    environment: firefox
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium firefox
+      - run: npm run verify
+      - run: npm run check:firefox
+      - name: Validate release version
+        if: github.ref_type == 'tag'
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: node -e 'if (process.env.RELEASE_TAG !== "v"+JSON.parse(require("fs").readFileSync("package.json")).version) process.exit(1)'
+      - run: node scripts/source-package.mjs
+      - name: Submit to Mozilla Add-ons
+        env:
+          WEB_EXT_API_KEY: ${{ secrets.AMO_API_KEY }}
+          WEB_EXT_API_SECRET: ${{ secrets.AMO_API_SECRET }}
+        run: npx web-ext sign --source-dir dist-firefox --channel listed --amo-metadata docs/amo.json --upload-source-code artifacts/youtube-localizer-source.zip --approval-timeout 0 --no-input
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: firefox-source
+          path: artifacts/youtube-localizer-source.zip

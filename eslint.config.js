@@ -1,10 +1,12 @@
 import js from '@eslint/js';
 import tseslint from 'typescript-eslint';
-import reactHooks from 'eslint-plugin-react-hooks';
+import svelte from 'eslint-plugin-svelte';
+import globals from 'globals';
 export default tseslint.config(
   {
     ignores: [
       'dist/**',
+      'dist-firefox/**',
       'node_modules/**',
       'test-results/**',
       'playwright-report/**',
@@ -13,10 +15,13 @@ export default tseslint.config(
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
+  ...svelte.configs['flat/recommended'],
   {
-    files: ['src/**/*.{ts,tsx}'],
-    plugins: { 'react-hooks': reactHooks },
-    rules: { ...reactHooks.configs.recommended.rules },
+    files: ['**/*.svelte'],
+    languageOptions: {
+      globals: { ...globals.browser, chrome: 'readonly' },
+      parserOptions: { parser: tseslint.parser },
+    },
   },
   {
     files: ['scripts/*.mjs'],

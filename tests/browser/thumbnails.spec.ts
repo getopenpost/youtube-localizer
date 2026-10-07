@@ -65,10 +65,6 @@ test('Studio launches a video-aware composer, references stay local until select
   await expect(
     composer.getByRole('heading', { name: studioState.title }),
   ).toBeVisible();
-  await composer.getByText('Video context', { exact: true }).click();
-  await expect(
-    composer.getByText('00:00 Introdução', { exact: true }),
-  ).toBeVisible();
   // Native Chrome permission dialogs are outside the DOM fixture. Simulate the user's grant.
   await composer.evaluate(() => {
     chrome.permissions.request = async (permissions) => {

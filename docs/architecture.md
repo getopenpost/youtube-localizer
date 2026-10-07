@@ -37,3 +37,15 @@ Reference images are bounded local blobs, re-encoded without original metadata a
 Creation commands have client-generated UUIDs. Repeated commands with the same UUID return their existing checkpoint. The coordinator persists submitting, selects only requested reference blobs, and calls the official OpenAI SDK with retries disabled. A custom SDK fetch guard rechecks the durable pause epoch after multipart serialization and immediately before POST. Response request IDs persist before stream consumption; completed JPEG assets persist before the creation becomes generated. No queue polling or automatic resubmission exists for interrupted OpenAI streams.
 
 The composer uses image edits for reference-guided creation, and image generations for text-only creation. It uses the configured GPT Image 2.5 model and quality independently of the image localization mode. A deliberate click authorizes one new paid image. Reopening and choosing variants are local. Download and use-for-localization are separate from Studio publication; the latter uses the existing cached-source command.
+
+## Shared Svelte interface
+
+The four MV3 pages mount Svelte 5 components through Vite. Each page loads its own view; the generation, storage, Studio and rendering modules remain plain TypeScript. A Svelte readable store refreshes durable workspace snapshots, and local draft state remains in its owning view. Approval reconciles optimistic state with stored results when commands settle.
+
+Controls, icons and theme runtime come from `@openpost/ui`. The Dither family is fixed; system light/dark changes update its scheme. Extension layout uses namespaced color aliases instead of redefining runtime variables. Fonts are bundled locally.
+
+`vendor/openpost-ui-0.1.0.tgz` and `vendor/openpost-dither-0.1.0.tgz` are compiled packages from OpenPost. To update them, build both packages there, run `npm pack` for each into this repository’s `vendor/`, then explicitly install the new archives and commit the npm lockfile with them. Version changes should use new archive filenames. Run the extension checks and packaged browser workflows before shipping. Registry releases can replace archives later without changing component APIs.
+
+## Firefox adapters
+
+The browser adapter selects Firefox’s native Promise API namespace or Chromium’s native API. Firefox runs an event background document for validated DOM/canvas composition and uses the sidebar entry. Remembered Firefox credentials use a separate extension-origin IndexedDB database, since content scripts can access Firefox local storage. Session keys keep the browser’s default trusted-context restriction. Neither credential database nor account bindings enter backups.

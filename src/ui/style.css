@@ -1,48 +1,26 @@
+@import 'tailwindcss';
+@import '@openpost/ui/style.css';
+@source '../../node_modules/@openpost/ui/dist';
 :root {
-  font-family: 'Geist', sans-serif;
-  font-size: 14px;
+  font-size: 16px;
   line-height: 1.55;
-  font-weight: 400;
-  color: var(--text);
-  background: var(--canvas);
   font-synthesis: none;
-  --canvas: #faf9f6;
-  --surface: #fff;
-  --text: #24221f;
-  --muted: #6b655e;
-  --line: #ddd7ce;
-  --accent: #a44218;
-  --accent-soft: #fceee5;
-  --success: #31643e;
-  --danger: #a2352b;
-  --radius: 7px;
-  color-scheme: light;
-}
-@media (prefers-color-scheme: dark) {
-  :root {
-    --canvas: #191816;
-    --surface: #22211e;
-    --text: #f3efe8;
-    --muted: #b7afa5;
-    --line: #48423b;
-    --accent: #f6a071;
-    --accent-soft: #39261e;
-    --success: #a0c8a9;
-    --danger: #ffb3a9;
-    color-scheme: dark;
-  }
+  --canvas: var(--background);
+  --surface: var(--card);
+  --text: var(--foreground);
+  --muted-ink: var(--muted-foreground);
+  --line: var(--border);
+  --localizer-accent: var(--action-focal);
+  --localizer-accent-soft: var(--selection);
+  --status-danger: var(--destructive);
+  --localizer-success: var(--success-foreground);
 }
 * {
   box-sizing: border-box;
 }
 body {
+  font-size: var(--theme-type-body-size);
   margin: 0;
-}
-button,
-input,
-textarea,
-select {
-  font: inherit;
 }
 button,
 a,
@@ -58,36 +36,22 @@ button:disabled {
   cursor: default;
   opacity: 0.5;
 }
-button,
-select,
-input,
-textarea {
-  color: inherit;
-}
-button {
-  background: none;
-  border: 0;
-}
 a {
-  color: var(--accent);
+  color: var(--localizer-accent);
   text-underline-offset: 3px;
 }
-button:focus-visible,
-a:focus-visible,
-input:focus-visible,
-textarea:focus-visible,
-select:focus-visible,
+a:not([data-slot='button']):focus-visible,
 summary:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--localizer-accent);
   outline-offset: 3px;
 }
 ::selection {
-  background: var(--accent-soft);
+  background: var(--localizer-accent-soft);
   color: var(--text);
 }
 input,
 textarea {
-  caret-color: var(--accent);
+  caret-color: var(--localizer-accent);
 }
 html {
   scrollbar-color: var(--line) var(--canvas);
@@ -130,7 +94,7 @@ svg {
 small,
 .help {
   font-size: 12px;
-  color: var(--muted);
+  color: var(--muted-ink);
 }
 .app-shell {
   min-height: 100vh;
@@ -160,7 +124,7 @@ small,
 .brand small {
   display: block;
   font-size: 11px;
-  color: var(--muted);
+  color: var(--muted-ink);
   font-weight: 400;
   margin-top: 5px;
 }
@@ -169,8 +133,8 @@ small,
   place-items: center;
   width: 38px;
   height: 38px;
-  background: var(--accent-soft);
-  color: var(--accent);
+  background: var(--localizer-accent-soft);
+  color: var(--localizer-accent);
   border-radius: 10px;
 }
 .app-header nav {
@@ -184,60 +148,28 @@ small,
   align-items: center;
   justify-content: center;
   border-radius: var(--radius);
-  color: var(--muted);
+  color: var(--muted-ink);
 }
 .icon-button:hover,
 .icon-button[aria-current='page'] {
-  background: var(--accent-soft);
-  color: var(--accent);
+  background: var(--localizer-accent-soft);
+  color: var(--localizer-accent);
 }
 .primary,
 .secondary,
-.text-button,
+.text-button {
+  gap: 8px;
+}
 .file-button {
   display: inline-flex;
   gap: 8px;
   align-items: center;
-  justify-content: center;
   min-height: 38px;
   padding: 8px 13px;
-  font-size: 13px;
-  font-weight: 500;
   border-radius: var(--radius);
-  text-decoration: none;
-}
-.primary {
-  background: var(--accent);
-  color: var(--surface);
-  border: 1px solid var(--accent);
-}
-.primary:hover:not(:disabled) {
-  filter: brightness(0.93);
-}
-@media (prefers-color-scheme: dark) {
-  .primary {
-    color: #191816;
-  }
-}
-.secondary {
-  background: var(--surface);
-  border: 1px solid var(--line);
-  color: var(--text);
-}
-.secondary:hover:not(:disabled) {
-  background: var(--accent-soft);
-  border-color: var(--accent);
-}
-.text-button {
-  color: var(--accent);
-  padding-inline: 0;
-}
-.text-button:hover {
-  text-decoration: underline;
-  text-underline-offset: 4px;
 }
 .inline-button {
-  color: var(--accent);
+  color: var(--localizer-accent);
   padding: 0;
   font-size: 12px;
   text-decoration: underline;
@@ -248,7 +180,7 @@ small,
   padding: 12px 14px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  color: var(--muted);
+  color: var(--muted-ink);
   display: flex;
   gap: 9px;
   font-size: 12px;
@@ -256,7 +188,7 @@ small,
   overflow-wrap: anywhere;
 }
 .notice.error {
-  color: var(--danger);
+  color: var(--status-danger);
 }
 .panel-body .notice {
   margin: 0 0 16px;
@@ -278,7 +210,7 @@ small,
   font-size: 20px;
 }
 .empty-state p {
-  color: var(--muted);
+  color: var(--muted-ink);
   font-size: 13px;
 }
 .empty-state .text-button {
@@ -295,7 +227,7 @@ small,
 }
 .channel-section p {
   font-size: 11px;
-  color: var(--muted);
+  color: var(--muted-ink);
   margin-top: 3px;
 }
 .search-box {
@@ -306,7 +238,7 @@ small,
   background: var(--surface);
   border-radius: var(--radius);
   padding: 0 10px;
-  color: var(--muted);
+  color: var(--muted-ink);
 }
 .search-box input {
   border: 0;
@@ -324,7 +256,7 @@ small,
   display: flex;
   justify-content: space-between;
   align-items: center;
-  color: var(--muted);
+  color: var(--muted-ink);
   margin-top: 18px;
   padding-bottom: 12px;
   border-bottom: 1px solid var(--line);
@@ -338,10 +270,7 @@ small,
   cursor: pointer;
 }
 .checkbox-label input {
-  width: 15px;
-  height: 15px;
   flex-shrink: 0;
-  accent-color: var(--accent);
   margin: 0;
 }
 .video-list {
@@ -361,9 +290,6 @@ small,
 }
 .video-row > input {
   margin: 12px 0 0;
-  width: 15px;
-  height: 15px;
-  accent-color: var(--accent);
   flex-shrink: 0;
 }
 .video-thumbnail {
@@ -391,29 +317,29 @@ small,
   display: flex;
   gap: 7px;
   flex-wrap: wrap;
-  color: var(--muted);
+  color: var(--muted-ink);
   margin-top: 5px;
 }
 .video-state {
   display: block;
   font-size: 10px;
-  color: var(--muted);
+  color: var(--muted-ink);
   margin-top: 4px;
 }
 .attention {
-  color: var(--danger);
+  color: var(--status-danger);
 }
 .visibility {
   font-size: 11px;
-  color: var(--muted);
+  color: var(--muted-ink);
   text-transform: capitalize;
 }
 .visibility.scheduled {
-  color: var(--accent);
+  color: var(--localizer-accent);
 }
 .empty-list {
   font-size: 12px;
-  color: var(--muted);
+  color: var(--muted-ink);
   padding: 24px 0;
 }
 .image-placeholder {
@@ -444,7 +370,7 @@ small,
 }
 .panel-actions > p {
   font-size: 11px;
-  color: var(--muted);
+  color: var(--muted-ink);
   margin-bottom: 9px;
 }
 .panel-actions > .primary {
@@ -461,14 +387,14 @@ small,
 }
 .run-reason {
   font-size: 12px;
-  color: var(--muted);
+  color: var(--muted-ink);
   margin: 14px 0;
 }
 .about {
   padding: 20px 24px;
   border-top: 1px solid var(--line);
   font-size: 11px;
-  color: var(--muted);
+  color: var(--muted-ink);
   margin-top: auto;
 }
 .about details {
@@ -510,7 +436,7 @@ small,
   font-size: 34px;
 }
 .page-heading p {
-  color: var(--muted);
+  color: var(--muted-ink);
   margin-top: 14px;
   font-size: 14px;
   max-width: 56ch;
@@ -531,7 +457,7 @@ small,
   padding-right: 12px;
 }
 .settings-page fieldset > p {
-  color: var(--muted);
+  color: var(--muted-ink);
   font-size: 13px;
   margin-bottom: 20px;
 }
@@ -551,29 +477,6 @@ small,
   font-weight: 500;
   margin-bottom: 16px;
 }
-input:not([type='checkbox']),
-select,
-textarea {
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  padding: 9px 11px;
-  min-width: 0;
-  background: var(--surface);
-  color: var(--text);
-  width: 100%;
-}
-input::placeholder,
-textarea::placeholder {
-  color: var(--muted);
-  opacity: 1;
-}
-textarea {
-  resize: vertical;
-  line-height: 1.55;
-}
-select {
-  min-height: 40px;
-}
 .help {
   margin-top: 8px;
   line-height: 1.6;
@@ -589,8 +492,8 @@ select {
   margin: 18px 0 14px;
 }
 .selected-languages button {
-  background: var(--accent-soft);
-  color: var(--accent);
+  background: var(--localizer-accent-soft);
+  color: var(--localizer-accent);
   padding: 5px 9px;
   border-radius: 5px;
   font-size: 12px;
@@ -646,7 +549,7 @@ select {
   pointer-events: none;
 }
 .file-button:focus-within {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--localizer-accent);
   outline-offset: 3px;
 }
 .file-button:has(input:disabled) {
@@ -680,7 +583,7 @@ select {
 }
 .review-toolbar > span {
   font-size: 12px;
-  color: var(--muted);
+  color: var(--muted-ink);
   font-variant-numeric: tabular-nums;
 }
 .review-toolbar > div {
@@ -701,12 +604,12 @@ select {
 }
 .source-label {
   font-size: 12px;
-  color: var(--muted);
+  color: var(--muted-ink);
   margin-bottom: 12px;
 }
 .source-description {
   font-size: 12px;
-  color: var(--muted);
+  color: var(--muted-ink);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   margin: 14px 0 28px;
@@ -754,7 +657,7 @@ select {
   font-size: 11px;
 }
 .success-text {
-  color: var(--success);
+  color: var(--localizer-success);
   font-size: 12px;
   margin-top: 8px;
 }
@@ -780,7 +683,7 @@ select {
 }
 .language-heading span {
   font-size: 12px;
-  color: var(--muted);
+  color: var(--muted-ink);
 }
 .review-component {
   padding: 18px 20px;
@@ -800,14 +703,14 @@ select {
   align-items: center;
   gap: 3px;
   font-size: 10px;
-  color: var(--muted);
+  color: var(--muted-ink);
   text-align: right;
 }
 .status.success {
-  color: var(--success);
+  color: var(--localizer-success);
 }
 .status.attention {
-  color: var(--danger);
+  color: var(--status-danger);
 }
 .field-actions {
   display: flex;
@@ -819,7 +722,7 @@ select {
 }
 .field-actions > span {
   font-size: 10px;
-  color: var(--muted);
+  color: var(--muted-ink);
   font-variant-numeric: tabular-nums;
 }
 .field-actions .text-button {
@@ -832,7 +735,7 @@ select {
 }
 .component-error {
   font-size: 12px;
-  color: var(--danger);
+  color: var(--status-danger);
   margin-top: 12px;
   overflow-wrap: anywhere;
 }
@@ -846,7 +749,7 @@ select {
   gap: 12px;
   margin: 8px 0;
   font-size: 11px;
-  color: var(--muted);
+  color: var(--muted-ink);
 }
 .wording-review input:not([type='checkbox']) {
   font-size: 12px;
@@ -860,7 +763,7 @@ select {
 }
 .regenerate summary {
   cursor: pointer;
-  color: var(--accent);
+  color: var(--localizer-accent);
 }
 .regenerate label {
   display: block;
@@ -881,7 +784,7 @@ select {
   align-items: flex-start;
 }
 .review-boundary {
-  color: var(--muted);
+  color: var(--muted-ink);
   font-size: 12px;
   margin-bottom: 12px;
 }
@@ -995,7 +898,7 @@ select {
 }
 .review-bottom-actions > span {
   font-size: 12px;
-  color: var(--muted);
+  color: var(--muted-ink);
 }
 
 .component-heading h3 {
@@ -1025,7 +928,7 @@ select {
   font-size: 12px;
 }
 .language-summary > span {
-  color: var(--accent);
+  color: var(--localizer-accent);
   flex-shrink: 0;
 }
 .list-controls {
@@ -1079,7 +982,7 @@ select {
   justify-content: space-between;
   gap: 12px;
   font-size: 12px;
-  color: var(--muted);
+  color: var(--muted-ink);
 }
 .image-default strong {
   font-weight: 500;
@@ -1092,7 +995,7 @@ select {
 }
 .settings-advanced summary {
   cursor: pointer;
-  color: var(--muted);
+  color: var(--muted-ink);
 }
 .settings-advanced fieldset {
   border: 0;
@@ -1148,7 +1051,7 @@ select {
 }
 .source-description-fold {
   font-size: 12px;
-  color: var(--muted);
+  color: var(--muted-ink);
   margin: 12px 0 24px;
 }
 .source-description-fold summary {
@@ -1196,7 +1099,7 @@ select {
 }
 .layer-box {
   position: absolute;
-  border: 1px dashed var(--accent);
+  border: 1px dashed var(--localizer-accent);
   background: transparent;
   border-radius: 0;
   min-height: 0;
@@ -1206,7 +1109,7 @@ select {
   cursor: move;
 }
 .layer-box.selected {
-  border: 2px solid var(--accent);
+  border: 2px solid var(--localizer-accent);
 }
 .layer-fields {
   border: 0;
@@ -1290,7 +1193,7 @@ input[type='color'] {
   border: 2px solid transparent;
 }
 .reference-tile.selected img {
-  border-color: var(--accent);
+  border-color: var(--localizer-accent);
 }
 .reference-tile span {
   display: flex;
@@ -1320,7 +1223,7 @@ input[type='color'] {
 }
 .thumbnail-connection summary,
 .reference-manager summary {
-  color: var(--muted);
+  color: var(--muted-ink);
   font-size: 12px;
 }
 .generate-thumbnail {
@@ -1344,7 +1247,7 @@ input[type='color'] {
   display: grid;
   place-content: center;
   justify-items: center;
-  color: var(--muted);
+  color: var(--muted-ink);
   padding: 16px;
   text-align: center;
 }
@@ -1369,7 +1272,7 @@ input[type='color'] {
   overflow: hidden;
 }
 .thumbnail-variant.selected {
-  border-color: var(--accent);
+  border-color: var(--localizer-accent);
 }
 .thumbnail-variant img {
   width: 100%;

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-10-07T16:16:00Z",
+  "generatedAt": "2026-10-07T21:00:00Z",
   "title": "YouTube Localizer",
   "extensions": {
     "shadows": [],
@@ -28,45 +28,31 @@
         "displayName": "Body",
         "purpose": "Read and compare content."
       }
+    },
+    "sharedSystem": {
+      "package": "@openpost/ui",
+      "theme": "dither",
+      "themePicker": false,
+      "appearance": "system",
+      "fonts": ["Geist Variable", "Geist Mono Variable", "Manrope Variable"]
     }
   },
   "components": [
     {
-      "name": "Primary button",
+      "name": "Focal action",
       "kind": "button",
       "refersTo": "button-primary",
-      "description": "Advance the current workflow.",
-      "html": "<button class=\"ds-primary\">Apply approved</button>",
-      "css": ".ds-primary{font:500 13px Geist,sans-serif;background:var(--accent,#a44218);color:var(--surface,#fff);border:1px solid var(--accent,#a44218);border-radius:7px;padding:8px 13px;min-height:38px;cursor:pointer}.ds-primary:hover{filter:brightness(.93)}.ds-primary:focus-visible{outline:2px solid var(--accent,#a44218);outline-offset:3px}.ds-primary:disabled{opacity:.5}"
+      "description": "Shared OpenPost Button with focal intent.",
+      "html": "<button class=\"ds-focal\">Generate</button>",
+      "css": ".ds-focal{font:600 14px \"Geist Variable\",sans-serif;background:var(--action-focal,oklch(.4 .13 45));color:var(--action-focal-foreground,white);border:1px solid var(--action-focal);border-radius:var(--theme-radius-md,6px);min-height:var(--theme-control-height,36px);padding:6px 12px}"
     },
     {
-      "name": "Secondary button",
+      "name": "Ordinary action",
       "kind": "button",
       "refersTo": "button-secondary",
-      "description": "A supporting action.",
-      "html": "<button class=\"ds-secondary\">Generate missing</button>",
-      "css": ".ds-secondary{font:500 13px Geist,sans-serif;background:var(--surface,#fff);color:var(--text,#24221f);border:1px solid var(--line,#ddd7ce);border-radius:7px;padding:8px 13px;min-height:38px;cursor:pointer}.ds-secondary:hover{background:var(--accent-soft,#fceee5);border-color:var(--accent,#a44218)}.ds-secondary:focus-visible{outline:2px solid var(--accent,#a44218);outline-offset:3px}"
-    },
-    {
-      "name": "Text field",
-      "kind": "input",
-      "description": "An editable translation.",
-      "html": "<input class=\"ds-input\" aria-label=\"Translated title\" value=\"One lesson at a time\" />",
-      "css": ".ds-input{font:400 14px Geist,sans-serif;background:var(--surface,#fff);color:var(--text,#24221f);border:1px solid var(--line,#ddd7ce);border-radius:7px;padding:9px 11px;caret-color:var(--accent,#a44218)}.ds-input:focus-visible{outline:2px solid var(--accent,#a44218);outline-offset:3px}"
-    },
-    {
-      "name": "Language chip",
-      "kind": "chip",
-      "description": "A selected target language.",
-      "html": "<button class=\"ds-chip\" aria-label=\"Remove French\">French \u00d7</button>",
-      "css": ".ds-chip{font:400 12px Geist,sans-serif;background:var(--accent-soft,#fceee5);color:var(--accent,#a44218);border:0;border-radius:5px;padding:5px 9px;cursor:pointer}.ds-chip:focus-visible{outline:2px solid var(--accent,#a44218);outline-offset:3px}"
-    },
-    {
-      "name": "Language review",
-      "kind": "custom",
-      "description": "A language and its component states.",
-      "html": "<section class=\"ds-review\"><h2>French</h2><p>Title and description \u00b7 Already present</p></section>",
-      "css": ".ds-review{font:400 13px Geist,sans-serif;color:var(--text,#24221f);border:0;padding:16px 0}.ds-review h2{font-size:18px;margin:0;padding-bottom:12px;border-bottom:1px solid var(--line,#ddd7ce)}.ds-review p{color:var(--muted,#6b655e);margin:12px 0 0}"
+      "description": "Shared supporting action.",
+      "html": "<button class=\"ds-ordinary\">Download</button>",
+      "css": ".ds-ordinary{font:500 14px \"Geist Variable\",sans-serif;background:var(--action-ordinary);color:var(--action-ordinary-foreground);border:1px solid var(--action-ordinary-border);border-radius:var(--theme-radius-md,6px);min-height:var(--theme-control-height,36px);padding:6px 12px}"
     }
   ],
   "narrative": {

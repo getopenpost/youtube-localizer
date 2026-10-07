@@ -1,3 +1,4 @@
+import { extensionApi, hasExtensionApi } from './webextension';
 import OpenAI from 'openai';
 import { ProviderError } from '../providers/http';
 export function openaiClient(key: string) {
@@ -14,13 +15,15 @@ export function openaiClient(key: string) {
 }
 export async function activeRequest<T>(task: () => Promise<T>): Promise<T> {
   // Image streams can be quiet while inference runs. Keep the worker alive only for this active operation.
-  const timer =
-    typeof chrome !== 'undefined' && chrome.runtime?.id
-      ? setInterval(
-          () => void chrome.runtime.getPlatformInfo().catch(() => {}),
-          20000,
-        )
-      : undefined;
+  const timer = hasExtensionApi()
+    ? setInterval(
+        () =>
+          void extensionApi()
+            .runtime.getPlatformInfo()
+            .catch(() => {}),
+        20000,
+      )
+    : undefined;
   try {
     return await task();
   } catch (error) {
