@@ -272,10 +272,7 @@
             void action(() =>
               command({ type: 'apply', jobIds: jobs.map((job) => job.id) }),
             )}
-          >Apply {approved || ''} approved <ThemeIcon
-            role="arrow-right"
-            width={16}
-            height={16}
+          >Apply approved <ThemeIcon role="arrow-right" width={16} height={16}
           ></ThemeIcon></Button
         >
       </div>{/if}{/if}

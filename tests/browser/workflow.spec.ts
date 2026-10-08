@@ -119,7 +119,7 @@ test('writes an approved text pair, reloads the saved fields, and leaves schedul
   extensionId,
   studioState,
 }) => {
-  const { panel, studio } = await openSelection(context, extensionId);
+  const { panel } = await openSelection(context, extensionId);
   await send(panel, {
     type: 'preferences',
     preferences: {
@@ -192,8 +192,9 @@ test('writes an approved text pair, reloads the saved fields, and leaves schedul
       .nth(1),
   ).toBeChecked();
   expect(studioState.saves).toBe(0);
-  await studio.bringToFront();
-  await send(panel, { type: 'apply', jobIds: [englishId] });
+  await approvalView
+    .getByRole('button', { name: 'Apply approved', exact: true })
+    .click();
   await expect
     .poll(() => studioState.translations.en?.description)
     .toBe('00:00 Introduction');

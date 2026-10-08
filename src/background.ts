@@ -334,6 +334,8 @@ async function execute(value: Command): Promise<unknown> {
         }
         await repo.putJob(job);
       }
+      if (value.type === 'apply')
+        await bridge.showWorkingTab(jobs[0].channelId);
       const previous = await repo.run();
       const run = {
         ...defaultRun(),

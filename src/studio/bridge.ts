@@ -157,6 +157,12 @@ export class StudioBridge {
     });
     return tabId;
   }
+  async showWorkingTab(channelId: string): Promise<void> {
+    const tabId = await this.workingTab(channelId);
+    await extensionApi().tabs.update(tabId, { active: true });
+    const tab = await extensionApi().tabs.get(tabId);
+    await extensionApi().windows.update(tab.windowId, { focused: true });
+  }
   private async navigate(
     tabId: number,
     channelId: string,

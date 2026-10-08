@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "YouTube Localizer by OpenPost",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "description": "Localize YouTube titles, descriptions and thumbnails with your own AI providers. Review first. Preserve existing translations.",
   "minimum_chrome_version": "120",
   "permissions": [

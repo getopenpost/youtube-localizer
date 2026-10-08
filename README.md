@@ -53,7 +53,7 @@ Temporary Firefox installations last until the browser closes. For a persistent 
 3. Open **Settings**, add your provider's API key, choose the channel's source and target languages, and save.
 4. Select videos and choose **Check missing translations**, then **Generate missing**.
 5. Choose **Approve all**. Use **Review** if you want to edit individual results.
-6. Keep the extension's Studio working tab visible and choose **Apply approved**.
+6. Choose **Apply approved**. The extension brings its Studio working tab forward. Keep it visible until the run finishes.
 
 The extension preserves existing translations and checks Studio again before writing. It writes localized titles, descriptions and thumbnails through language dialogs. Audio, subtitles and publication settings stay unchanged.
 
