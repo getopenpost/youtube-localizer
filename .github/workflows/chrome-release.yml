@@ -1,0 +1,67 @@
+name: Submit Chrome release
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+permissions:
+  contents: read
+  id-token: write
+concurrency:
+  group: chrome-store-submission
+  cancel-in-progress: false
+jobs:
+  chrome:
+    runs-on: ubuntu-latest
+    environment: chrome-store
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Validate release configuration
+        env:
+          CWS_PUBLISHER_ID: ${{ vars.CWS_PUBLISHER_ID }}
+          CWS_EXTENSION_ID: ${{ vars.CWS_EXTENSION_ID }}
+          CWS_SERVICE_ACCOUNT_KEY: ${{ secrets.CWS_SERVICE_ACCOUNT_KEY }}
+          CWS_WORKLOAD_IDENTITY_PROVIDER: ${{ vars.CWS_WORKLOAD_IDENTITY_PROVIDER }}
+          CWS_SERVICE_ACCOUNT: ${{ vars.CWS_SERVICE_ACCOUNT }}
+          RELEASE_TAG: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
+        run: |
+          node --input-type=module <<'JS'
+          import { readFileSync } from 'node:fs';
+          const env = process.env;
+          for (const name of ['CWS_PUBLISHER_ID', 'CWS_EXTENSION_ID']) {
+            if (!env[name]) throw new Error('Set ' + name + ' in the chrome-store environment. See docs/chrome-release.md.');
+          }
+          if (!env.CWS_SERVICE_ACCOUNT_KEY && !(env.CWS_WORKLOAD_IDENTITY_PROVIDER && env.CWS_SERVICE_ACCOUNT))
+            throw new Error('Set CWS_SERVICE_ACCOUNT_KEY, or both OIDC variables. See docs/chrome-release.md.');
+          if (env.CWS_SERVICE_ACCOUNT_KEY && env.CWS_WORKLOAD_IDENTITY_PROVIDER)
+            throw new Error('Choose service-account key or OIDC authentication, not both.');
+          const { version } = JSON.parse(readFileSync('package.json', 'utf8'));
+          if (env.RELEASE_TAG && env.RELEASE_TAG !== 'v' + version)
+            throw new Error('Release tag must equal v' + version);
+          JS
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium firefox
+      - run: xvfb-run --auto-servernum npm run verify
+      - run: npm run package
+      - name: Authenticate publisher service account
+        uses: google-github-actions/auth@v3
+        with:
+          credentials_json: ${{ secrets.CWS_SERVICE_ACCOUNT_KEY }}
+          workload_identity_provider: ${{ vars.CWS_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.CWS_SERVICE_ACCOUNT }}
+      - name: Upload and submit to Chrome Web Store
+        env:
+          CWS_PUBLISHER_ID: ${{ vars.CWS_PUBLISHER_ID }}
+          CWS_EXTENSION_ID: ${{ vars.CWS_EXTENSION_ID }}
+        run: |
+          version=$(node -p 'require("./package.json").version')
+          node scripts/publish-chrome.mjs "artifacts/youtube-localizer-${version}.zip"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: chrome-release
+          path: artifacts/*.zip
