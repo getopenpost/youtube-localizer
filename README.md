@@ -4,6 +4,10 @@ Translate your video's title, description and thumbnail text, or generate a new 
 
 Use your existing YouTube Studio session and your own AI API keys. Everything is stored in your browser; generation requests go directly to the provider you choose.
 
+![YouTube Localizer thumbnail composer and saved reference controls](docs/screenshots/overview.webp)
+
+Shown with sample data.
+
 ## What you can do
 
 - Generate missing translations and approve all ready results in one click. Review and edit whenever you want.
@@ -109,6 +113,10 @@ npm run package:firefox   # Firefox ZIP in artifacts/
 Tests use isolated browser profiles, intercepted Studio/provider responses and fixture credentials. For live Studio validation, follow the [scheduled-video pilot](docs/pilot.md).
 
 The UI uses Svelte 5, Vite and `@openpost/ui`, with a fixed orange Dither theme and system light/dark appearance. Versioned UI packages are included in `vendor/`; a sibling OpenPost checkout is not required. See [architecture and package updates](docs/architecture.md), [product scope](PRODUCT.md) and [contributor instructions](AGENTS.md).
+
+## Chrome Web Store releases
+
+A matching version tag runs verification, uploads the Chromium package and submits it for Google review. Follow [the one-time publisher and GitHub setup](docs/chrome-release.md) before the first release.
 
 ## Firefox releases
 
