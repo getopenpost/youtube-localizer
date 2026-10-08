@@ -4,7 +4,7 @@ Translate your video's title, description and thumbnail text, or generate a new 
 
 Use your existing YouTube Studio session and your own AI API keys. Everything is stored in your browser; generation requests go directly to the provider you choose.
 
-![YouTube Localizer’s Generate button beside a real video thumbnail in YouTube Studio](docs/screenshots/overview.webp)
+![YouTube Localizer’s Generate button beside a real video thumbnail in YouTube Studio](docs/screenshots/youtube-localizer-745a10444f66.webp)
 
 The **Generate** button beside a real video’s thumbnail in YouTube Studio.
 
