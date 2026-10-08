@@ -9,9 +9,11 @@
     job,
     disabled,
     onAction,
+    onDirty,
   }: {
     job: Job;
     disabled: boolean;
+    onDirty?: (id: string, dirty: boolean) => void;
     onAction: (fn: () => Promise<unknown>) => Promise<void>;
   } = $props();
   let pendingApproval = $state<boolean>();
@@ -22,6 +24,13 @@
       job.source.thumbnailText?.map(() => '') ??
       [],
   );
+  $effect(() => {
+    onDirty?.(
+      `${job.id}/wording`,
+      draft !== undefined &&
+        JSON.stringify(draft) !== JSON.stringify(job.thumbnailStrings),
+    );
+  });
 </script>
 
 {#if !job.source.thumbnailTextApproved}{:else}{#if !job.source.thumbnailText?.length}{:else}<div

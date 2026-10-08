@@ -9,6 +9,7 @@
     NativeSelect,
     CheckboxInput,
   } from '@openpost/ui';
+  import { approvalCount } from '../core/approval';
   import { preferencesSchema, type StudioContext } from '../core/model';
   import { videoStatus } from '../core/planner';
   import { languageName } from '../core/languages';
@@ -124,12 +125,45 @@
   const hasEvidence = $derived(
     videos.some((v) => videoStatus(v, workspace.jobs, prefs) !== 'Not checked'),
   );
+  const ready = $derived(
+    jobs.reduce(
+      (count, job) => count + approvalCount(job, prefs.components),
+      0,
+    ),
+  );
+  const approved = $derived(
+    jobs.reduce(
+      (count, job) =>
+        count +
+        prefs.components.filter(
+          (component) => job.slots[component]?.application === 'approved',
+        ).length,
+      0,
+    ),
+  );
+  const queued = $derived(
+    jobs.some((job) =>
+      prefs.components.some(
+        (component) => job.slots[component]?.generation === 'queued',
+      ),
+    ),
+  );
+  const nextLabel = $derived(
+    !checked
+      ? 'Check missing translations'
+      : ready
+        ? 'Approve all'
+        : queued
+          ? 'Generate missing'
+          : approved
+            ? 'Apply approved'
+            : generated
+              ? 'Check translations'
+              : 'Generate missing',
+  );
   async function next() {
-    if (generated) {
-      openPage('review');
-      return;
-    }
     if (!context) return;
+    const jobIds = jobs.map((job) => job.id);
     if (!checked) {
       await command({
         type: 'preflight',
@@ -138,7 +172,27 @@
       });
       return;
     }
-    await command({ type: 'generate', jobIds: jobs.map((job) => job.id) });
+    if (ready) {
+      await command({ type: 'approve-all', jobIds });
+      return;
+    }
+    if (queued) {
+      await command({ type: 'generate', jobIds });
+      return;
+    }
+    if (approved) {
+      await command({ type: 'apply', jobIds });
+      return;
+    }
+    if (generated) {
+      await command({
+        type: 'preflight',
+        channelId: context.channelId,
+        videoIds: selected,
+      });
+      return;
+    }
+    await command({ type: 'generate', jobIds });
   }
 </script>
 
@@ -344,21 +398,16 @@
             disabled={!selected.length || !!busy}
             onclick={() =>
               void act(!checked ? 'Checking translations' : 'Starting', next)}
-            >{busy ||
-              (generated
-                ? 'Review translations'
-                : checked
-                  ? 'Generate missing'
-                  : 'Check missing translations')}<ThemeIcon
+            >{busy || nextLabel}<ThemeIcon
               role="arrow-right"
               width={16}
               height={16}
             ></ThemeIcon></Button
-          >{#if checked && !generated}<Button
+          >{#if checked}<Button
               class="text-button"
               intent="quiet"
               onclick={() => openPage('review')}
-              >Review missing items
+              >Review
             </Button>{/if}{/if}
       </div>{/if}{/if}
 </main>

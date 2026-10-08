@@ -1,3 +1,4 @@
+import { approveAll } from './core/approval';
 import { extensionApi } from './platform/webextension';
 import {
   generateThumbnail,
@@ -383,6 +384,9 @@ async function execute(value: Command): Promise<unknown> {
       await repo.putJob(job);
       return;
     }
+    case 'approve-all':
+      await assertPaused();
+      return approveAll(repo, value.jobIds);
     case 'approve': {
       await assertPaused();
       const job = await getJob(value.jobId);

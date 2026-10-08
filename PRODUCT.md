@@ -16,7 +16,7 @@ Creators and channel managers select videos, choose target languages, and locali
 
 ## Workflow
 
-Open Studio, discover the current video or current content page, select videos, check existing translations, generate missing components, review, then apply approved components. Source and target languages, components and a glossary belong to each channel.
+Open Studio, discover the current video or current content page, select videos, check existing translations, generate missing components, approve all ready results, then apply them. Individual review and edits are optional. Source and target languages, components and a glossary belong to each channel.
 
 ## Constraints
 

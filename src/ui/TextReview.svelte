@@ -12,11 +12,13 @@
     slot,
     disabled,
     onAction,
+    onDirty,
   }: {
     job: Job;
     component: 'title' | 'description';
     slot: Slot;
     disabled: boolean;
+    onDirty?: (id: string, dirty: boolean) => void;
     onAction: (fn: () => Promise<unknown>) => Promise<void>;
   } = $props();
   let optimisticApproval = $state<boolean>();
@@ -29,6 +31,12 @@
     slot.generation === 'generated' &&
       !['verified', 'preserved', 'stale'].includes(slot.application),
   );
+  $effect(() => {
+    onDirty?.(
+      `${job.id}/${component}`,
+      draft !== undefined && draft !== slot.value,
+    );
+  });
 </script>
 
 <section class="review-component">

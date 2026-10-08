@@ -6,7 +6,7 @@ Use your existing YouTube Studio session and your own AI API keys. Everything is
 
 ## What you can do
 
-- Generate missing translations, edit the results and approve each component before applying it in Studio.
+- Generate missing translations and approve all ready results in one click. Review and edit whenever you want.
 - Keep multiple YouTube accounts connected, with separate languages, glossaries and history for each channel.
 - Generate original thumbnails with GPT Image 2.5 Sunburst, the default image model. Save face, brand and style references for later videos.
 - Edit thumbnail text with GPT Image, Ideogram 4.5 Edit or Nano Banana models.
@@ -48,8 +48,8 @@ Temporary Firefox installations last until the browser closes. For a persistent 
 2. Open the extension and select **Read current Studio page**.
 3. Open **Settings**, add your provider's API key, choose the channel's source and target languages, and save.
 4. Select videos and choose **Check missing translations**, then **Generate missing**.
-5. Open **Review translations**. Edit and approve the titles, descriptions and thumbnails you want to use.
-6. Keep the extension's Studio working tab visible and use the **Apply** button in Review.
+5. Choose **Approve all**. Use **Review** if you want to edit individual results.
+6. Keep the extension's Studio working tab visible and choose **Apply approved**.
 
 The extension preserves existing translations and checks Studio again before writing. It writes localized titles, descriptions and thumbnails through language dialogs. Audio, subtitles and publication settings stay unchanged.
 

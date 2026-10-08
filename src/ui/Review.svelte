@@ -1,5 +1,7 @@
 <script lang="ts">
   import { Button, ThemeIcon, NativeSelect } from '@openpost/ui';
+  import { approvalCount } from '../core/approval';
+  import { toast } from 'svelte-sonner';
   import { components } from '../core/model';
   import { languageName } from '../core/languages';
   import { repository } from '../core/storage';
@@ -74,6 +76,36 @@
       busy = '';
     }
   }
+  let dirty = $state<Record<string, boolean>>({});
+  function draftChanged(id: string, value: boolean) {
+    if (!!dirty[id] === value) return;
+    dirty = { ...dirty, [id]: value };
+  }
+  const unsaved = $derived(
+    jobs.some((job) =>
+      ['title', 'description', 'wording'].some(
+        (component) => dirty[`${job.id}/${component}`],
+      ),
+    ),
+  );
+  const ready = $derived(
+    jobs.reduce(
+      (count, job) =>
+        count +
+        approvalCount(
+          job,
+          prefs?.components ?? job.enabledComponents ?? components,
+        ),
+      0,
+    ),
+  );
+  async function approveGenerated() {
+    const result = await command<{ approved: number; wordings: number }>({
+      type: 'approve-all',
+      jobIds: jobs.map((job) => job.id),
+    });
+    toast.success(`${result.approved + result.wordings} approved`);
+  }
   const disabled = $derived(active || !!busy);
 </script>
 
@@ -125,6 +157,12 @@
           {languageCount === 1 ? 'language' : 'languages'} · {approved} approved
         </span>
         <div>
+          {#if !active && ready}<Button
+              intent="focal"
+              disabled={disabled || unsaved}
+              title={unsaved ? 'Save your edits first' : undefined}
+              onclick={() => void action(approveGenerated)}>Approve all</Button
+            >{/if}
           {#if active}<Button
               class="secondary"
               intent="ordinary"
@@ -206,12 +244,14 @@
                           {slot}
                           {disabled}
                           onAction={action}
+                          onDirty={draftChanged}
                         ></ThumbnailReview>{:else}<TextReview
                           {job}
                           {component}
                           {slot}
                           {disabled}
                           onAction={action}
+                          onDirty={draftChanged}
                         ></TextReview>{/if}<Retry
                         {job}
                         {component}

@@ -218,6 +218,14 @@ test('prepares text layers once, resumes its saved receipt, then renders German 
       approved: true,
     }),
   ).rejects.toThrow('layout changed');
+  expect(
+    await send(review, {
+      type: 'approve-all',
+      jobIds: ['en', 'de', 'ar'].map(
+        (language) => `${CHANNEL}/${VIDEO}/${language}`,
+      ),
+    }),
+  ).toEqual({ approved: 0, wordings: 0 });
   await studio.bringToFront();
   await send(review, { type: 'apply', jobIds: [`${CHANNEL}/${VIDEO}/en`] });
   await expect(review.locator('.component-error')).toContainText(

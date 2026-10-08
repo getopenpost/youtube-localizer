@@ -40,6 +40,10 @@ export const commandSchema = z.discriminatedUnion('type', [
   }),
   z.object({ type: z.literal('generate'), jobIds: z.array(z.string()).min(1) }),
   z.object({ type: z.literal('apply'), jobIds: z.array(z.string()).min(1) }),
+  z.object({
+    type: z.literal('approve-all'),
+    jobIds: z.array(z.string()).min(1).max(1500),
+  }),
   z.object({ type: z.literal('pause') }),
   z.object({ type: z.literal('settings'), settings: settingsSchema }),
   z.object({ type: z.literal('preferences'), preferences: preferencesSchema }),

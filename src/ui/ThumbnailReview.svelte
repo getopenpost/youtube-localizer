@@ -16,6 +16,7 @@
     slot,
     disabled,
     onAction,
+    onDirty,
     local,
     authuser,
   }: {
@@ -24,6 +25,7 @@
     authuser?: string;
     slot: Slot;
     disabled: boolean;
+    onDirty?: (id: string, dirty: boolean) => void;
     onAction: (fn: () => Promise<unknown>) => Promise<void>;
   } = $props();
   let optimisticApproval = $state<boolean>();
@@ -42,6 +44,7 @@
       {job}
       {disabled}
       {onAction}
+      {onDirty}
     ></WordingReview>{/key}{#if slot.assetId}<AssetImage
       assetId={slot.assetId}
       alt={`${languageName(job.language)} generated thumbnail`}

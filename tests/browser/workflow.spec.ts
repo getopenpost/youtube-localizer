@@ -119,7 +119,7 @@ test('writes an approved text pair, reloads the saved fields, and leaves schedul
   extensionId,
   studioState,
 }) => {
-  const { panel } = await openSelection(context, extensionId);
+  const { panel, studio } = await openSelection(context, extensionId);
   await send(panel, {
     type: 'preferences',
     preferences: {
@@ -168,18 +168,31 @@ test('writes an approved text pair, reloads the saved fields, and leaves schedul
     });
     db.close();
   }, englishId);
-  await send(panel, {
-    type: 'approve',
-    jobId: englishId,
-    component: 'title',
-    approved: true,
+  const approvalView = await context.newPage();
+  await approvalView.goto(`chrome-extension://${extensionId}/review.html`);
+  const approveAll = approvalView.getByRole('button', {
+    name: 'Approve all',
+    exact: true,
   });
-  await send(panel, {
-    type: 'approve',
-    jobId: englishId,
-    component: 'description',
-    approved: true,
-  });
+  await expect(approveAll).toBeEnabled();
+  const title = approvalView.getByLabel('English title', { exact: true });
+  await title.fill('Unsaved wording');
+  await expect(approveAll).toBeDisabled();
+  await title.fill('Learn at your own pace');
+  await expect(approveAll).toBeEnabled();
+  await approveAll.click();
+  await expect(
+    approvalView
+      .getByRole('checkbox', { name: 'Approved', exact: true })
+      .first(),
+  ).toBeChecked();
+  await expect(
+    approvalView
+      .getByRole('checkbox', { name: 'Approved', exact: true })
+      .nth(1),
+  ).toBeChecked();
+  expect(studioState.saves).toBe(0);
+  await studio.bringToFront();
   await send(panel, { type: 'apply', jobIds: [englishId] });
   await expect
     .poll(() => studioState.translations.en?.description)

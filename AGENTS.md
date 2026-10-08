@@ -19,3 +19,5 @@
 - Promise APIs go through `platform/webextension.ts`, selecting native Firefox browser or Chromium chrome. Firefox uses an event background page for DOM rendering and a sidebar. Persistent Firefox credentials use a separate extension-origin IndexedDB vault because local storage has no trusted-context access restriction; the vault never enters backups.
 
 - Text credentials carry their saved base URL. Reject a different endpoint before sending a key. OpenRouter is an OpenAI-compatible preset; custom URL and model fields belong in Connection. Older direct OpenAI image settings migrate to the equivalent Fal model, while cached assets and legacy creation history remain readable.
+
+- Bulk approval only approves saved, generated missing components and complete translated thumbnail wording for the selected channel. Keep approval separate from provider generation and Studio application; never approve stale layouts or unsaved UI drafts. Review is optional and secondary to the side panel next action.
