@@ -32,10 +32,10 @@ The user supplied an eight-part proposal. Live, read-only Studio inspection on 2
 
 ## Current scope
 
-GPT Image 2.5 Sunburst is the default editor. Ideogram 4.5 Edit supports very_low quality with high precision through Fal. Layerize Text prepares one reusable background and editable layout per source hash, then renders language variants locally. Manual wording avoids translation requests; AI wording still uses the text provider.
+GPT Image 2.5 Sunburst through Fal is the default editor. All image generation and editing uses Fal; OpenRouter is available as a text preset. Ideogram 4.5 Edit supports very_low quality with high precision through Fal. Layerize Text prepares one reusable background and editable layout per source hash, then renders language variants locally. Manual wording avoids translation requests; AI wording still uses the text provider.
 
 Support multiple Studio accounts/channels with isolated preferences and history, observed account selectors and one bound channel per batch. Main screens use one next action. Layout controls and advanced model settings are folded away. All provider access uses API keys; ChatGPT plan sign-in was removed from scope by the user.
 
 ## Original thumbnail generation
 
-Save reusable person, brand and style reference images locally. Studio's video-details Thumbnail heading has a Generate launcher that captures title and description and opens the extension composer. The composer uses GPT Image 2.5 with selected reference images, or text-to-image generation without them. Persist requests and variants per video, support downloads and choosing a generated localization source. No automatic primary-thumbnail Studio writes or video-details saves. Library and creation history belong in private backups. Keep the existing simple interface.
+Save reusable person, brand and style reference images locally. Studio's video-details Thumbnail heading has a Generate launcher that captures title and description and opens the extension composer. The composer uses the selected Fal model with selected reference images, or its text-to-image endpoint without them. Persist requests and variants per video, support downloads and choosing a generated localization source. No automatic primary-thumbnail Studio writes or video-details saves. Library and creation history belong in private backups. Keep the existing simple interface.

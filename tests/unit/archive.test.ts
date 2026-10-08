@@ -106,6 +106,8 @@ it('roundtrips generated assets as unapproved cache and excludes credentials, si
     prompt: 'A thumbnail using my reference',
     references: [reference],
     model: 'gpt-image-2.5-sunburst' as const,
+    resolution: '1K' as const,
+    precision: 'regular' as const,
     quality: 'auto' as const,
     state: 'generated' as const,
     assetId: assetHash,
@@ -113,6 +115,22 @@ it('roundtrips generated assets as unapproved cache and excludes credentials, si
     createdAt: 1,
   };
   await repo.putCreation(creation);
+  const pending = {
+    ...creation,
+    id: crypto.randomUUID(),
+    state: 'waiting' as const,
+    model: 'openai/gpt-image-2.5/sunburst/edit' as const,
+    assetId: undefined,
+    falRequest: {
+      requestId: 'creation-pending',
+      model: 'openai/gpt-image-2.5/sunburst/edit',
+      statusUrl:
+        'https://queue.fal.run/openai/gpt-image-2.5/requests/creation-pending/status',
+      responseUrl:
+        'https://queue.fal.run/openai/gpt-image-2.5/requests/creation-pending',
+    },
+  };
+  await repo.putCreation(pending);
   const archive = await exportArchive(repo);
   const contents = unzipSync(new Uint8Array(await archive.arrayBuffer()));
   const json = strFromU8(contents['history.json']);
@@ -128,6 +146,11 @@ it('roundtrips generated assets as unapproved cache and excludes credentials, si
   expect(
     (await restored.creation(creation.id))?.video.thumbnailUrl,
   ).toBeUndefined();
+  expect(await restored.creation(pending.id)).toMatchObject({
+    state: 'ambiguous',
+    retryAcknowledged: false,
+  });
+  expect((await restored.creation(pending.id))?.falRequest).toBeUndefined();
   expect(result.slots.thumbnail?.application).toBe('pending');
   expect(result.slots.thumbnail?.lastEvidence?.state).toBe('unknown');
   expect(result.slots.thumbnail?.verifiedAt).toBeUndefined();

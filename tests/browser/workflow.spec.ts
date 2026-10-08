@@ -555,15 +555,13 @@ test('preflight requires a saved channel fallback when Studio does not declare a
   expect(studioState.saves).toBe(0);
 });
 
-test('default OpenAI image edits use GPT Image 2.5 Sunburst and retain completed assets without another submission', async ({
+test('default image edits use GPT Image 2.5 Sunburst through Fal and retain completed assets without another submission', async ({
   context,
   extensionId,
   studioState,
 }) => {
   let submissions = 0;
-  const image = (await readFile('tests/fixtures/thumbnail.png')).toString(
-    'base64',
-  );
+  const image = await readFile('tests/fixtures/thumbnail.png');
   await context.route('https://api.openai.com/v1/chat/completions', (route) =>
     route.fulfill({
       contentType: 'application/json',
@@ -582,31 +580,47 @@ test('default OpenAI image edits use GPT Image 2.5 Sunburst and retain completed
       }),
     }),
   );
-  await context.route(
-    'https://api.openai.com/v1/images/edits',
-    async (route) => {
-      submissions++;
-      expect(route.request().headers().authorization).toBe(
-        'Bearer fixture-image-key',
-      );
-      const body = route.request().postData()!;
-      expect(body).toContain('gpt-image-2.5-sunburst');
-      expect(body).toContain('1280x720');
-      expect(body).toContain('"from":"APRENDER","to":"LEARN"');
-      await route.fulfill({
-        headers: { 'x-request-id': 'fixture-image-receipt' },
-        contentType: 'text/event-stream',
-        body: `event: image_edit.completed\ndata: ${JSON.stringify({ type: 'image_edit.completed', b64_json: image })}\n\n`,
-      });
-    },
+  await context.route('https://v3.fal.media/**', (route) =>
+    route.fulfill({ contentType: 'image/png', body: image }),
   );
+  await context.route('https://queue.fal.run/**', async (route) => {
+    const url = route.request().url();
+    expect(route.request().headers().authorization).toBe('Key fixture-fal-key');
+    if (route.request().method() === 'POST') {
+      submissions++;
+      expect(url).toBe(
+        'https://queue.fal.run/openai/gpt-image-2.5/sunburst/edit',
+      );
+      const body = route.request().postDataJSON();
+      expect(body.image_size).toEqual({ width: 1280, height: 720 });
+      expect(body.prompt).toContain('"from":"APRENDER","to":"LEARN"');
+      await route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify({
+          request_id: 'gpt-edit-receipt',
+          status_url:
+            'https://queue.fal.run/openai/gpt-image-2.5/requests/gpt-edit-receipt/status',
+          response_url:
+            'https://queue.fal.run/openai/gpt-image-2.5/requests/gpt-edit-receipt',
+        }),
+      });
+    } else {
+      await route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify(
+          url.endsWith('/status')
+            ? { status: 'COMPLETED' }
+            : { images: [{ url: 'https://v3.fal.media/edited.png' }] },
+        ),
+      });
+    }
+  });
   const worker = context.serviceWorkers()[0];
   await worker.evaluate(() =>
     chrome.storage.session.set({
       credentials: {
         textKey: 'fixture-text-key',
-        imageKey: 'fixture-image-key',
-        falKey: '',
+        falKey: 'fixture-fal-key',
       },
     }),
   );

@@ -1,4 +1,10 @@
 <script lang="ts">
+  import { toast } from 'svelte-sonner';
+  import {
+    textProviderPresets,
+    falImageModels,
+    falImageModelSchema,
+  } from '../core/providers';
   import { extensionApi } from '../platform/webextension';
 
   import { onMount } from 'svelte';
@@ -54,22 +60,20 @@
   );
   let query = $state('');
   let textKey = $state('');
-  let imageKey = $state('');
   let falKey = $state('');
-  let saved = $state({ text: false, image: false, fal: false });
+  let saved = $state({ text: false, fal: false });
   let busy = $state(false);
-  let error = $state('');
-  let message = $state('');
   onMount(() => {
     if (isExtension())
-      void credentials().then(
-        (value) =>
-          (saved = {
-            text: !!value.textKey,
-            image: !!value.imageKey,
-            fal: !!value.falKey,
-          }),
-      );
+      void credentials()
+        .then(
+          (value) =>
+            (saved = {
+              text: !!value.textKey,
+              fal: !!value.falKey,
+            }),
+        )
+        .catch(() => toast.error('Could not read saved keys.'));
   });
   const provider = $derived(
     (values: Partial<Settings['provider']>) =>
@@ -77,13 +81,11 @@
   );
   async function action(fn: () => Promise<unknown>) {
     busy = true;
-    error = '';
-    message = '';
     try {
       await fn();
       await refresh();
     } catch (e) {
-      error = e instanceof Error ? e.message : 'Could not save.';
+      toast.error(e instanceof Error ? e.message : 'Could not save.');
     } finally {
       busy = false;
     }
@@ -91,14 +93,35 @@
   async function save() {
     if (!isExtension())
       throw new Error('Load the extension to save connections.');
-    const parsed = settingsSchema.parse(settings);
+    const validated = settingsSchema.safeParse(settings);
+    if (!validated.success) {
+      const field = validated.error.issues[0]?.path.at(-1);
+      throw new Error(
+        field === 'baseUrl'
+          ? 'Enter a valid base URL.'
+          : field === 'model'
+            ? 'Enter a text model.'
+            : field === 'requestLimit'
+              ? 'Batch limit must be between 1 and 1000.'
+              : 'Check the connection settings.',
+      );
+    }
+    const parsed = validated.data;
     parsed.provider.baseUrl = providerBase(parsed.provider.baseUrl);
-    const origins = providerOrigins(
-      parsed.provider.baseUrl,
-      parsed.provider.imageProvider !== 'openai',
-    );
-    if (parsed.provider.imageProvider === 'openai')
-      origins.push('https://api.openai.com/*');
+    const preferences = channel
+      ? preferencesSchema.safeParse(prefs)
+      : undefined;
+    if (preferences && !preferences.success) {
+      const field = preferences.error.issues[0]?.path.at(-1);
+      throw new Error(
+        field === 'components'
+          ? 'Select at least one component.'
+          : field === 'glossary'
+            ? 'Keep translation notes under 6000 characters.'
+            : 'Check the source and target languages.',
+      );
+    }
+    const origins = providerOrigins(parsed.provider.baseUrl);
     if (
       !(await extensionApi().permissions.request({
         origins: [...new Set(origins)],
@@ -107,7 +130,8 @@
       throw new Error('Provider access was declined.');
     const current = await credentials();
     const changedEndpoint =
-      parsed.provider.baseUrl !== workspace.settings.provider.baseUrl ||
+      parsed.provider.baseUrl !==
+        providerBase(workspace.settings.provider.baseUrl) ||
       parsed.provider.protocol !== workspace.settings.provider.protocol;
     if (
       changedEndpoint &&
@@ -117,28 +141,23 @@
     )
       throw new Error('Enter a key for the new provider.');
     const keys = {
-      textKey: textKey || current.textKey,
-      imageKey: imageKey || current.imageKey,
+      textKey: textKey || (changedEndpoint ? '' : current.textKey),
+      textBaseUrl: parsed.provider.baseUrl,
       falKey: falKey || current.falKey,
     };
     await command({ type: 'settings', settings: parsed });
     await saveCredentials(keys, parsed.rememberCredentials);
-    if (channel)
-      await command({
-        type: 'preferences',
-        preferences: preferencesSchema.parse(prefs),
-      });
+    if (preferences?.success)
+      await command({ type: 'preferences', preferences: preferences.data });
     textKey = '';
-    imageKey = '';
     falKey = '';
     saved = {
       text: !!keys.textKey,
-      image: !!keys.imageKey,
       fal: !!keys.falKey,
     };
     draft = undefined;
     preferenceDraft = undefined;
-    message = 'Saved';
+    toast.success('Saved');
   }
   const channels = $derived([
     ...new Map(
@@ -153,10 +172,9 @@
 
 <main class="settings-page simple-settings">
   <h1>Settings</h1>
-  {#if storageError}<Notice error>{storageError}</Notice>{/if}{#if error}<Notice
-      error>{error}</Notice
-    >{/if}{#if message}<Notice>{message}</Notice>{/if}
+  {#if storageError}<Notice error>{storageError}</Notice>{/if}
   <form
+    novalidate
     onsubmit={(e) => {
       e.preventDefault();
       void action(save);
@@ -171,22 +189,34 @@
             onchange={(e) => {
               const preset = e.currentTarget
                 .value as Settings['provider']['preset'];
-              provider({
-                preset,
-                protocol: preset === 'anthropic' ? 'anthropic' : 'openai',
-                baseUrl:
-                  preset === 'anthropic'
-                    ? 'https://api.anthropic.com/v1'
-                    : 'https://api.openai.com/v1',
-                model:
-                  preset === 'anthropic' ? 'claude-sonnet-5-5' : 'gpt-4.1-mini',
-              });
+              provider(
+                preset === 'custom'
+                  ? { preset }
+                  : { preset, ...textProviderPresets[preset] },
+              );
             }}
-            ><option value="openai">OpenAI</option><option value="anthropic"
-              >Anthropic</option
-            ><option value="custom">Custom endpoint</option></NativeSelect
+            ><option value="openai">OpenAI</option><option value="openrouter"
+              >OpenRouter</option
+            ><option value="anthropic">Anthropic</option><option value="custom"
+              >Custom endpoint</option
+            ></NativeSelect
           ></label
-        ><label
+        >
+        <label
+          >Text model <Input
+            value={settings.provider.model}
+            oninput={(e) => provider({ model: e.currentTarget.value })}
+          /></label
+        >
+        {#if settings.provider.preset === 'custom'}<label
+            >Base URL <Input
+              type="url"
+              value={settings.provider.baseUrl}
+              placeholder="https://your-provider.example/v1"
+              oninput={(e) => provider({ baseUrl: e.currentTarget.value })}
+            /></label
+          >{/if}
+        <label
           >API key <Input
             type="password"
             autocomplete="off"
@@ -195,42 +225,43 @@
             placeholder={saved.text
               ? 'Saved. Leave blank to keep.'
               : 'Paste your API key'}
-          ></Input></label
+          /></label
         >
       </div>
       <label
         >Thumbnails <NativeSelect
-          value={settings.provider.imageProvider}
-          onchange={(e) =>
-            provider({
-              imageProvider: e.currentTarget
-                .value as Settings['provider']['imageProvider'],
-            })}
-          ><option value="openai">GPT Image 2.5</option><option value="fal"
-            >Fal image edit</option
-          ><option value="layerize">Ideogram editable text</option
-          ></NativeSelect
-        ></label
-      >{#if settings.provider.imageProvider !== 'openai'}<label
-          >Fal key <Input
-            type="password"
-            autocomplete="off"
-            value={falKey}
-            oninput={(e) => (falKey = e.currentTarget.value)}
-            placeholder={saved.fal
-              ? 'Saved. Leave blank to keep.'
-              : 'Fal API key'}
-          ></Input></label
-        >{/if}{#if settings.provider.protocol !== 'openai' || settings.provider.baseUrl.replace(/\/$/, '') !== 'https://api.openai.com/v1'}<label
-          >OpenAI key for images <Input
-            type="password"
-            value={imageKey}
-            oninput={(e) => (imageKey = e.currentTarget.value)}
-            placeholder={saved.image
-              ? 'Saved. Leave blank to keep.'
-              : 'OpenAI API key'}
-          ></Input></label
-        >{/if}
+          value={settings.provider.imageProvider === 'layerize'
+            ? 'layerize'
+            : settings.provider.falModel}
+          onchange={(e) => {
+            const value = e.currentTarget.value;
+            provider(
+              value === 'layerize'
+                ? { imageProvider: 'layerize' }
+                : {
+                    imageProvider: 'fal',
+                    falModel: falImageModelSchema.parse(value),
+                  },
+            );
+          }}
+        >
+          {#each Object.entries(falImageModels) as [value, model] (value)}<option
+              {value}>{model.label}</option
+            >{/each}
+          <option value="layerize">Ideogram editable text</option>
+        </NativeSelect></label
+      >
+      <label
+        >Fal key <Input
+          type="password"
+          autocomplete="off"
+          value={falKey}
+          oninput={(e) => (falKey = e.currentTarget.value)}
+          placeholder={saved.fal
+            ? 'Saved. Leave blank to keep.'
+            : 'Fal API key'}
+        /></label
+      >
     </fieldset>
     <fieldset {disabled}>
       <legend>Languages</legend>{#if channels.length > 1}<label
@@ -331,115 +362,88 @@
       <summary>Advanced</summary>
       <fieldset {disabled}>
         <div class="form-grid">
-          <label
-            >Text model <Input
-              value={settings.provider.model}
-              oninput={(e) => provider({ model: e.currentTarget.value })}
-            ></Input></label
-          ><label
-            >Base URL <Input
-              type="url"
-              value={settings.provider.baseUrl}
-              oninput={(e) => provider({ baseUrl: e.currentTarget.value })}
-            ></Input></label
-          ><label
-            >Protocol <NativeSelect
-              value={settings.provider.protocol}
-              onchange={(e) =>
-                provider({
-                  protocol: e.currentTarget.value as 'openai' | 'anthropic',
-                })}
-              ><option value="openai">Chat Completions</option><option
-                value="anthropic">Messages</option
-              ></NativeSelect
-            ></label
-          ><label
-            >Authentication <NativeSelect
-              value={settings.provider.auth}
-              onchange={(e) =>
-                provider({ auth: e.currentTarget.value as 'bearer' | 'none' })}
-              ><option value="bearer">API key</option><option value="none"
-                >None</option
-              ></NativeSelect
-            ></label
-          >{#if settings.provider.imageProvider === 'openai'}<label
-              >Image model <NativeSelect
-                value={settings.provider.imageModel}
+          {#if settings.provider.preset === 'custom'}
+            <label
+              >Protocol <NativeSelect
+                value={settings.provider.protocol}
                 onchange={(e) =>
                   provider({
-                    imageModel: e.currentTarget
-                      .value as Settings['provider']['imageModel'],
+                    protocol: e.currentTarget.value as 'openai' | 'anthropic',
                   })}
-                ><option value="gpt-image-2.5-sunburst"
-                  >GPT Image 2.5 Sunburst
-                </option><option value="gpt-image-2.5-flare"
-                  >GPT Image 2.5 Flare
-                </option></NativeSelect
+                ><option value="openai">Chat Completions</option><option
+                  value="anthropic">Messages</option
+                ></NativeSelect
               ></label
-            ><label
-              >Image quality <NativeSelect
-                value={settings.provider.imageQuality}
+            >
+            <label
+              >Authentication <NativeSelect
+                value={settings.provider.auth}
                 onchange={(e) =>
                   provider({
-                    imageQuality: e.currentTarget
-                      .value as Settings['provider']['imageQuality'],
+                    auth: e.currentTarget.value as 'bearer' | 'none',
                   })}
-                >{#each ['auto', 'low', 'medium', 'high', 'xhigh', 'max'] as v (v)}<option
-                    value={v}>{v}</option
-                  >{/each}</NativeSelect
+                ><option value="bearer">API key</option><option value="none"
+                  >None</option
+                ></NativeSelect
               ></label
-            >{:else}{#if settings.provider.imageProvider === 'fal'}<label
-                >Fal model <NativeSelect
-                  value={settings.provider.falModel}
+            >
+          {/if}
+          {#if settings.provider.imageProvider === 'fal'}
+            {#if settings.provider.falModel.startsWith('openai/')}
+              <label
+                >Image quality <NativeSelect
+                  value={settings.provider.imageQuality}
                   onchange={(e) =>
                     provider({
-                      falModel: e.currentTarget
-                        .value as Settings['provider']['falModel'],
+                      imageQuality: e.currentTarget
+                        .value as Settings['provider']['imageQuality'],
                     })}
-                  ><option value="ideogram/v4.5/edit"
-                    >Ideogram 4.5 Edit
-                  </option><option value="fal-ai/nano-banana-pro/edit"
-                    >Nano Banana Pro
-                  </option><option value="fal-ai/nano-banana/edit"
-                    >Nano Banana
-                  </option></NativeSelect
+                  >{#each ['auto', 'low', 'medium', 'high', 'xhigh', 'max'] as quality (quality)}<option
+                      value={quality}>{quality}</option
+                    >{/each}</NativeSelect
                 ></label
-              >{#if settings.provider.falModel === 'ideogram/v4.5/edit'}<label
-                  >Ideogram quality <NativeSelect
-                    value={settings.provider.ideogramQuality}
-                    onchange={(e) =>
-                      provider({
-                        ideogramQuality: e.currentTarget
-                          .value as Settings['provider']['ideogramQuality'],
-                      })}
-                    >{#each ['very_low', 'low', 'medium', 'high'] as v (v)}<option
-                        value={v}>{v.replace('_', ' ')}</option
-                      >{/each}</NativeSelect
-                  ></label
-                ><label
-                  >Edit precision <NativeSelect
-                    value={settings.provider.ideogramPrecision}
-                    onchange={(e) =>
-                      provider({
-                        ideogramPrecision: e.currentTarget.value as
-                          'regular' | 'high',
-                      })}
-                    ><option value="high"
-                      >High · preserve other pixels
-                    </option><option value="regular">Regular</option
-                    ></NativeSelect
-                  ></label
-                >{:else}<label
-                  >Resolution <NativeSelect
-                    value={settings.provider.imageResolution}
-                    onchange={(e) =>
-                      provider({
-                        imageResolution: e.currentTarget.value as '1K' | '2K',
-                      })}
-                    ><option value="1K">1K</option><option value="2K">2K</option
-                    ></NativeSelect
-                  ></label
-                >{/if}{/if}{/if}
+              >
+            {:else if settings.provider.falModel === 'ideogram/v4.5/edit'}
+              <label
+                >Ideogram quality <NativeSelect
+                  value={settings.provider.ideogramQuality}
+                  onchange={(e) =>
+                    provider({
+                      ideogramQuality: e.currentTarget
+                        .value as Settings['provider']['ideogramQuality'],
+                    })}
+                  >{#each ['very_low', 'low', 'medium', 'high'] as quality (quality)}<option
+                      value={quality}>{quality.replace('_', ' ')}</option
+                    >{/each}</NativeSelect
+                ></label
+              >
+              <label
+                >Edit precision <NativeSelect
+                  value={settings.provider.ideogramPrecision}
+                  onchange={(e) =>
+                    provider({
+                      ideogramPrecision: e.currentTarget.value as
+                        'regular' | 'high',
+                    })}
+                  ><option value="high">High</option><option value="regular"
+                    >Regular</option
+                  ></NativeSelect
+                ></label
+              >
+            {:else if settings.provider.falModel.includes('-pro')}
+              <label
+                >Resolution <NativeSelect
+                  value={settings.provider.imageResolution}
+                  onchange={(e) =>
+                    provider({
+                      imageResolution: e.currentTarget.value as '1K' | '2K',
+                    })}
+                  ><option value="1K">1K</option><option value="2K">2K</option
+                  ></NativeSelect
+                ></label
+              >
+            {/if}
+          {/if}
         </div>
         <label class="checkbox-label"
           ><CheckboxInput
@@ -456,7 +460,7 @@
               })}
           />Remember keys on this device
         </label><label
-          >Requests per run <Input
+          >Max paid requests per batch <Input
             type="number"
             min={1}
             max={1000}
@@ -465,9 +469,11 @@
               provider({ requestLimit: Number(e.currentTarget.value) })}
           ></Input></label
         >{#if channel}<label
-            >Glossary <Textarea
+            >Translation notes <Textarea
               rows={3}
               value={prefs.glossary}
+              maxlength={6000}
+              placeholder="Keep OpenPost unchanged."
               oninput={(e) =>
                 (preferenceDraft = {
                   ...prefs,
@@ -478,7 +484,7 @@
       </fieldset>
     </details>
     <div class="save-row">
-      <Button class="primary" intent="focal" {disabled}
+      <Button type="submit" class="primary" intent="focal" {disabled}
         >{busy ? 'Saving…' : 'Save'}</Button
       >
     </div>
@@ -501,9 +507,12 @@
             const file = e.currentTarget.files?.[0];
             if (file)
               void action(() =>
-                navigator.locks.request('localizer-coordinator', () =>
-                  importArchive(repository, file),
-                ),
+                (async () => {
+                  await navigator.locks.request('localizer-coordinator', () =>
+                    importArchive(repository, file),
+                  );
+                  toast.success('Backup imported');
+                })(),
               );
             e.currentTarget.value = '';
           }}
@@ -514,7 +523,10 @@
         onclick={() =>
           void action(async () => {
             await forgetCredentials();
-            saved = { text: false, image: false, fal: false };
+            textKey = '';
+            falKey = '';
+            toast.success('Keys forgotten');
+            saved = { text: false, fal: false };
           })}
         >Forget keys
       </Button>

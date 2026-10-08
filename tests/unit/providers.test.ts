@@ -1,7 +1,16 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { defaultSettings, type Job } from '../../src/core/model';
+import {
+  defaultSettings,
+  providerConfigSchema,
+  type Job,
+  type ProviderConfig,
+} from '../../src/core/model';
 import { translate } from '../../src/providers/text';
-import { pollImage, submitImage } from '../../src/providers/fal';
+import {
+  pollImage,
+  submitImage,
+  submitFalImage,
+} from '../../src/providers/fal';
 import { providerBase } from '../../src/platform/credentials';
 import { providerJson } from '../../src/providers/http';
 const job: Job = {
@@ -30,16 +39,24 @@ const job: Job = {
 };
 afterEach(() => vi.unstubAllGlobals());
 describe('provider protocols and credential boundary', () => {
-  it.each(['openai', 'anthropic'] as const)(
+  it.each(['openai', 'anthropic', 'openrouter'] as const)(
     'parses %s translations and sends credentials only to the configured provider',
-    async (protocol) => {
-      const config = {
+    async (preset) => {
+      const protocol = preset === 'anthropic' ? 'anthropic' : 'openai';
+      const config: ProviderConfig = {
         ...defaultSettings().provider,
         protocol,
+        preset,
+        model:
+          preset === 'openrouter'
+            ? 'openai/gpt-4.1-mini'
+            : defaultSettings().provider.model,
         baseUrl:
-          protocol === 'openai'
-            ? 'https://api.openai.com/v1'
-            : 'https://api.anthropic.com/v1',
+          preset === 'openrouter'
+            ? 'https://openrouter.ai/api/v1'
+            : protocol === 'openai'
+              ? 'https://api.openai.com/v1'
+              : 'https://api.anthropic.com/v1',
       };
       const content = JSON.stringify({
         title: 'Learn',
@@ -68,9 +85,11 @@ describe('provider protocols and credential boundary', () => {
         RequestInit,
       ];
       expect(url).toBe(
-        protocol === 'openai'
-          ? 'https://api.openai.com/v1/chat/completions'
-          : 'https://api.anthropic.com/v1/messages',
+        preset === 'openrouter'
+          ? 'https://openrouter.ai/api/v1/chat/completions'
+          : protocol === 'openai'
+            ? 'https://api.openai.com/v1/chat/completions'
+            : 'https://api.anthropic.com/v1/messages',
       );
       expect(
         new Headers(init.headers).get(
@@ -171,3 +190,80 @@ describe('provider protocols and credential boundary', () => {
     );
   });
 });
+
+it('routes the default image editor through Fal and migrates previously saved direct OpenAI choices', async () => {
+  const config = providerConfigSchema.parse({
+    imageProvider: 'openai',
+    imageModel: 'gpt-image-2.5-flare',
+  });
+  expect(config.imageProvider).toBe('fal');
+  expect(config.falModel).toBe('openai/gpt-image-2.5/flare/edit');
+  const network = vi.fn<typeof globalThis.fetch>(
+    async () =>
+      new Response(
+        JSON.stringify({
+          request_id: 'gpt-fal',
+          status_url:
+            'https://queue.fal.run/openai/gpt-image-2.5/requests/gpt-fal/status',
+          response_url:
+            'https://queue.fal.run/openai/gpt-image-2.5/requests/gpt-fal',
+        }),
+      ),
+  );
+  vi.stubGlobal('fetch', network);
+  await submitImage(
+    job,
+    defaultSettings().provider,
+    'fixture-fal',
+    'data:image/png;base64,fixture',
+  );
+  expect(network.mock.calls[0][0]).toBe(
+    'https://queue.fal.run/openai/gpt-image-2.5/sunburst/edit',
+  );
+  const init = network.mock.calls[0][1] as RequestInit;
+  expect(new Headers(init.headers).get('authorization')).toBe(
+    'Key fixture-fal',
+  );
+  expect(JSON.parse(init.body as string)).toMatchObject({
+    image_size: { width: 1280, height: 720 },
+    quality: 'auto',
+    num_images: 1,
+  });
+});
+it.each([
+  [
+    'openai/gpt-image-2.5/sunburst/edit',
+    'openai/gpt-image-2.5/sunburst/text-to-image',
+  ],
+  [
+    'openai/gpt-image-2.5/flare/edit',
+    'openai/gpt-image-2.5/flare/text-to-image',
+  ],
+  ['ideogram/v4.5/edit', 'ideogram/v4.5'],
+  ['fal-ai/nano-banana-pro/edit', 'fal-ai/nano-banana-pro'],
+  ['fal-ai/nano-banana/edit', 'fal-ai/nano-banana'],
+] as const)(
+  'uses %s for reference editing and %s for originals without references',
+  async (model, endpoint) => {
+    const network = vi.fn<typeof globalThis.fetch>(
+      async () =>
+        new Response(
+          JSON.stringify({
+            request_id: 'original',
+            status_url: 'https://queue.fal.run/models/requests/original/status',
+            response_url: 'https://queue.fal.run/models/requests/original',
+          }),
+        ),
+    );
+    vi.stubGlobal('fetch', network);
+    await submitFalImage(model, 'fixture-fal', 'A new thumbnail', [], {
+      quality: model.startsWith('ideogram') ? 'very_low' : 'auto',
+      resolution: '1K',
+      precision: 'regular',
+    });
+    expect(network.mock.calls[0][0]).toBe('https://queue.fal.run/' + endpoint);
+    expect(
+      JSON.parse((network.mock.calls[0][1] as RequestInit).body as string),
+    ).toMatchObject({ prompt: 'A new thumbnail', num_images: 1 });
+  },
+);

@@ -15,7 +15,12 @@
   import { repository } from '../core/storage';
   import { referenceAsset } from '../platform/images';
   import { command } from '../platform/messages';
-  import { credentials, saveCredentials } from '../platform/credentials';
+  import { falImageModels } from '../core/providers';
+  import {
+    credentials,
+    saveCredentials,
+    FAL_ORIGINS,
+  } from '../platform/credentials';
   import { MAX_REFERENCES, type Reference } from '../thumbnails/model';
   import { workspaceStore, refresh } from './workspace';
   let workspace = $derived($workspaceStore.workspace);
@@ -62,7 +67,9 @@
     creations.find((c) => c.id === chosen) ??
       creations.find((c) => c.state === 'generated'),
   );
-  const pending = $derived(creations.some((c) => c.state === 'submitting'));
+  const pending = $derived(
+    creations.some((c) => ['submitting', 'waiting'].includes(c.state)),
+  );
   const uncertain = $derived(
     creations.some((c) => c.state === 'ambiguous' && !c.retryAcknowledged),
   );
@@ -107,13 +114,13 @@
       throw new Error('Open a video from Studio to generate its thumbnail.');
     if (
       !(await extensionApi().permissions.request({
-        origins: ['https://api.openai.com/*'],
+        origins: FAL_ORIGINS,
       }))
     )
-      throw new Error('OpenAI access was declined.');
+      throw new Error('Fal access was declined.');
     if (key) {
       await saveCredentials(
-        { ...(await credentials()), imageKey: key },
+        { ...(await credentials()), falKey: key },
         workspace.settings.rememberCredentials,
       );
       key = '';
@@ -278,8 +285,8 @@
             />Use source thumbnail as a reference
           </label>{/if}
         <details class="thumbnail-connection">
-          <summary>OpenAI connection</summary><label
-            >OpenAI API key <Input
+          <summary>Fal connection</summary><label
+            >Fal API key <Input
               type="password"
               autocomplete="off"
               value={key}
@@ -300,7 +307,7 @@
               checked={acknowledged}
               {disabled}
               onchange={(e) => (acknowledged = e.currentTarget.checked)}
-            />I checked OpenAI and accept a possible second charge.
+            />I checked the provider and accept a possible second charge.
           </label>{/if}<Button
           class="primary generate-thumbnail"
           intent="focal"
@@ -313,9 +320,7 @@
             ? 'Generating…'
             : 'Generate'}</Button
         ><span class="help"
-          >{workspace.settings.provider.imageModel === 'gpt-image-2.5-flare'
-            ? 'GPT Image 2.5 Flare'
-            : 'GPT Image 2.5 Sunburst'}</span
+          >{falImageModels[workspace.settings.provider.falModel].label}</span
         >
       </section>
       <section class="thumbnail-output" aria-label="Generated thumbnails">
@@ -370,11 +375,16 @@
                   ></AssetImage></Button
                 >{:else}<p
                   class="help"
-                  role={creation.state === 'submitting' ? 'status' : undefined}
+                  role={creation.error
+                    ? 'alert'
+                    : ['submitting', 'waiting'].includes(creation.state)
+                      ? 'status'
+                      : undefined}
                 >
-                  {creation.state === 'submitting'
-                    ? 'Generating…'
-                    : (creation.error ?? 'Generation failed.')}
+                  {creation.error ??
+                    (['submitting', 'waiting'].includes(creation.state)
+                      ? 'Generating…'
+                      : 'Generation failed.')}
                 </p>{/if}{/each}
           </div>{/if}
       </section>

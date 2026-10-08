@@ -63,7 +63,7 @@ Open a video's **Details** page in Studio and click **Generate** beside the thum
 
 1. Describe the scene, layout and headline.
 2. Choose **Add images** to save references, then select the ones to use for this thumbnail.
-3. Add an OpenAI API key under **OpenAI connection** and select **Generate**.
+3. Add a Fal API key under **Fal connection** and select **Generate**.
 4. Download the result to upload in Studio, or choose **Use for localization** to create language variants from it.
 
 References stay local until you select them for generation. Saved variants remain available when you reopen the composer. Downloads are 1280 × 720 JPEGs; generating an original thumbnail does not upload it to Studio.
@@ -80,13 +80,15 @@ Rendering from saved layers is local and makes no image-generation request. Manu
 
 ## Providers and stored data
 
-Text generation supports OpenAI, Anthropic and OpenAI-compatible endpoints, including local servers. OpenAI handles original thumbnails. Image localization supports GPT Image 2.5 Sunburst and Flare, Ideogram 4.5 Edit, Nano Banana models and Ideogram editable text. Model and quality settings are under **Advanced**; Ideogram Edit defaults to `very_low` quality.
+Text generation supports OpenAI, OpenRouter, Anthropic and custom endpoints, including local servers. Selecting Custom endpoint exposes its Base URL directly. Fal handles all image generation and editing. Image localization supports GPT Image 2.5 Sunburst and Flare, Ideogram 4.5 Edit, Nano Banana models and Ideogram editable text. Choose the image model in Connection; quality settings are under **Advanced**; Ideogram Edit defaults to `very_low` quality.
 
-Provider usage is billed to your API account. Completed results are cached. Interrupted image submissions are never retried automatically; the extension asks you to resolve the previous request before submitting again.
+Provider usage is billed to your API account. Completed results are cached. Fal receipts survive restarts and resume retrieval without another submission. A submission interrupted before its receipt is saved requires checking the provider before another paid attempt.
 
-API keys are session-only by default. **Remember keys on this device** keeps them in trusted extension storage. Keys stay out of backups and sync storage. The extension has no telemetry, and OpenPost receives no video or image data.
+API keys are session-only by default. **Remember keys on this device** keeps them in trusted extension storage. Text keys are bound to their saved endpoint. Keys stay out of backups and sync storage. The extension has no telemetry, and OpenPost receives no video or image data.
 
 Use **Backup & keys** in Settings to export your work before uninstalling. Backups contain images and history, so keep them private. After importing, reconnect accounts and review results before applying them.
+
+Optional **Translation notes** preserve names and terminology. **Max paid requests per batch** caps new AI submissions in a localization batch. Both are under Advanced.
 
 ## Development
 

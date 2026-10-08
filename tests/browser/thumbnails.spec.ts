@@ -8,45 +8,60 @@ test('Studio launches a video-aware composer, references stay local until select
 }) => {
   let edits = 0,
     generations = 0;
-  const image = (await readFile('tests/fixtures/thumbnail.png')).toString(
-    'base64',
+  const image = await readFile('tests/fixtures/thumbnail.png');
+  await context.route('https://v3.fal.media/**', (route) =>
+    route.fulfill({ contentType: 'image/png', body: image }),
   );
-  await context.route('https://api.openai.com/v1/images/**', async (route) => {
-    expect(route.request().headers().authorization).toBe(
-      'Bearer fixture-image-key',
-    );
-    if (route.request().url().endsWith('/edits')) {
-      edits++;
-      const body = route.request().postData()!;
-      expect(body).toContain('gpt-image-2.5-sunburst');
-      expect(body).toContain('"name":"Face","role":"person"');
-      expect(body).toContain(studioState.title);
-      expect(body).not.toContain('"name":"Brand"');
-      expect(body.match(/filename="reference-/g)).toHaveLength(1);
+  await context.route('https://queue.fal.run/**', async (route) => {
+    const url = route.request().url();
+    expect(route.request().headers().authorization).toBe('Key fixture-fal-key');
+    if (route.request().method() === 'POST') {
+      const body = route.request().postDataJSON();
+      if (url.endsWith('/edit')) {
+        edits++;
+        expect(url).toBe(
+          'https://queue.fal.run/openai/gpt-image-2.5/sunburst/edit',
+        );
+        expect(body.prompt).toContain('"name":"Face","role":"person"');
+        expect(body.prompt).toContain(studioState.title);
+        expect(body.prompt).not.toContain('"name":"Brand"');
+        expect(body.image_urls).toHaveLength(1);
+      } else {
+        generations++;
+        expect(url).toBe(
+          'https://queue.fal.run/openai/gpt-image-2.5/sunburst/text-to-image',
+        );
+        expect(body.image_size).toEqual({ width: 1280, height: 720 });
+        expect(body.prompt).toContain('00:00 Introdução');
+      }
+      const id = 'creation-' + (edits + generations);
       await route.fulfill({
-        contentType: 'text/event-stream',
-        headers: { 'x-request-id': 'creation-edit' },
-        body: `event: image_edit.completed\ndata: ${JSON.stringify({ type: 'image_edit.completed', b64_json: image })}\n\n`,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          request_id: id,
+          status_url:
+            'https://queue.fal.run/openai/gpt-image-2.5/requests/' +
+            id +
+            '/status',
+          response_url:
+            'https://queue.fal.run/openai/gpt-image-2.5/requests/' + id,
+        }),
       });
     } else {
-      generations++;
-      expect(route.request().url()).toBe(
-        'https://api.openai.com/v1/images/generations',
-      );
-      const body = route.request().postDataJSON();
-      expect(body.model).toBe('gpt-image-2.5-sunburst');
-      expect(body.size).toBe('1280x720');
-      expect(body.prompt).toContain('00:00 Introdução');
       await route.fulfill({
-        contentType: 'text/event-stream',
-        body: `event: image_generation.completed\ndata: ${JSON.stringify({ type: 'image_generation.completed', b64_json: image })}\n\n`,
+        contentType: 'application/json',
+        body: JSON.stringify(
+          url.endsWith('/status')
+            ? { status: 'COMPLETED' }
+            : { images: [{ url: 'https://v3.fal.media/created.png' }] },
+        ),
       });
     }
   });
   const worker = context.serviceWorkers()[0];
   await worker.evaluate(() =>
     chrome.storage.session.set({
-      credentials: { imageKey: 'fixture-image-key', textKey: '', falKey: '' },
+      credentials: { textKey: '', falKey: 'fixture-fal-key' },
     }),
   );
   const studio = await context.newPage();
@@ -70,7 +85,11 @@ test('Studio launches a video-aware composer, references stay local until select
     chrome.permissions.request = async (permissions) => {
       if (
         JSON.stringify(permissions.origins) !==
-        JSON.stringify(['https://api.openai.com/*'])
+        JSON.stringify([
+          'https://queue.fal.run/*',
+          'https://*.fal.media/*',
+          'https://storage.googleapis.com/*',
+        ])
       )
         throw new Error('Unexpected image-provider permission.');
       return true;
@@ -126,10 +145,30 @@ test('Studio launches a video-aware composer, references stay local until select
   expect(studioState.saves).toBe(0);
   expect(studioState.visibility).toBe(SCHEDULE);
   await composer.getByText('Manage references', { exact: true }).click();
+  await expect(composer.getByLabel('Name for Brand')).toHaveValue('Brand');
+  await composer.getByLabel('Name for Brand').fill('Channel brand');
+  await composer.getByLabel('Role for Brand').click();
+  await expect(composer.getByLabel('Name for Channel brand')).toHaveValue(
+    'Channel brand',
+  );
+  await composer.getByLabel('Role for Channel brand').selectOption('style');
+  await composer.reload();
+  await composer.getByText('Manage references', { exact: true }).click();
+  await expect(composer.getByLabel('Name for Channel brand')).toHaveValue(
+    'Channel brand',
+  );
+  await expect(composer.getByLabel('Role for Channel brand')).toHaveValue(
+    'style',
+  );
   await composer
-    .getByRole('button', { name: 'Remove reference Brand', exact: true })
+    .getByRole('button', {
+      name: 'Remove reference Channel brand',
+      exact: true,
+    })
     .click();
-  await expect(composer.getByLabel('Use reference Brand')).toHaveCount(0);
+  await expect(composer.getByLabel('Use reference Channel brand')).toHaveCount(
+    0,
+  );
   expect(
     (
       await new AxeBuilder({ page: composer })
@@ -138,14 +177,23 @@ test('Studio launches a video-aware composer, references stay local until select
     ).violations,
   ).toEqual([]);
   await mkdir('.impeccable/review', { recursive: true });
+  await expect(
+    composer.getByRole('button', { name: 'Generate', exact: true }),
+  ).toBeEnabled();
   await composer.setViewportSize({ width: 1440, height: 900 });
   await composer.screenshot({
+    animations: 'disabled',
     path: '.impeccable/review/composer-desktop.png',
     fullPage: true,
   });
   await composer.emulateMedia({ colorScheme: 'dark' });
+  await expect(composer.locator('html')).toHaveAttribute(
+    'data-theme-scheme',
+    'dark',
+  );
   await composer.setViewportSize({ width: 390, height: 844 });
   await composer.screenshot({
+    animations: 'disabled',
     path: '.impeccable/review/composer-mobile-dark.png',
     fullPage: true,
   });

@@ -4,7 +4,7 @@ import { z } from 'zod';
 const credentialsSchema = z.object({
   textKey: z.string().max(2000).default(''),
   falKey: z.string().max(2000).default(''),
-  imageKey: z.string().max(2000).default(''),
+  textBaseUrl: z.string().url().optional(),
 });
 export type Credentials = z.infer<typeof credentialsSchema>;
 function privatePersistence() {
@@ -29,11 +29,7 @@ export async function credentials(): Promise<Credentials> {
       {},
   );
 }
-export async function saveCredentials(
-  value: Pick<Credentials, 'textKey' | 'falKey'> &
-    Partial<Pick<Credentials, 'imageKey'>>,
-  remember: boolean,
-) {
+export async function saveCredentials(value: Credentials, remember: boolean) {
   await restrictStorage();
   const parsed = credentialsSchema.parse(value);
   // Remove the persistent copy before switching to a session-only policy.
@@ -69,14 +65,11 @@ export function providerBase(value: string) {
     throw new Error('Provider URLs must use HTTPS, or HTTP on localhost.');
   return url.href.replace(/\/$/, '');
 }
-export function providerOrigins(base: string, withFal: boolean) {
-  const origin = `${new URL(providerBase(base)).origin}/*`;
-  return withFal
-    ? [
-        origin,
-        'https://queue.fal.run/*',
-        'https://*.fal.media/*',
-        'https://storage.googleapis.com/*',
-      ]
-    : [origin];
+export const FAL_ORIGINS = [
+  'https://queue.fal.run/*',
+  'https://*.fal.media/*',
+  'https://storage.googleapis.com/*',
+];
+export function providerOrigins(base: string) {
+  return [`${new URL(providerBase(base)).origin}/*`, ...FAL_ORIGINS];
 }

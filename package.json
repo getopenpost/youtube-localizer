@@ -1,6 +1,6 @@
 {
   "name": "@getopenpost/youtube-localizer",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "private": true,
   "type": "module",
   "description": "Localize YouTube titles, descriptions and thumbnails with your own AI providers.",
@@ -30,8 +30,8 @@
     "dompurify": "^3.4.16",
     "fflate": "^0.8.3",
     "idb": "^8.0.4",
-    "openai": "^7.30.0",
     "svelte": "^5.51.0",
+    "svelte-sonner": "^1.2.1",
     "zod": "^4.6.5"
   },
   "devDependencies": {

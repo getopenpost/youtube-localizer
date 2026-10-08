@@ -1,14 +1,17 @@
 import type { Repository } from '../core/storage';
 import { credentials } from '../platform/credentials';
 import { ProviderError } from '../providers/http';
-import { createImage } from '../providers/create-image';
+import { submitCreation } from '../providers/create-image';
+import { pollImage } from '../providers/fal';
+import { fetchImage, imageAsset } from '../platform/images';
 import { creationSchema } from './model';
 export async function recoverCreations(repo: Repository) {
   for (const creation of await repo.creations()) {
     if (creation.state !== 'submitting') continue;
-    creation.state = 'ambiguous';
-    creation.error =
-      'Generation interrupted. Check OpenAI before accepting another charge.';
+    creation.state = creation.falRequest ? 'waiting' : 'ambiguous';
+    creation.error = creation.falRequest
+      ? undefined
+      : 'Generation interrupted. Check the provider before accepting another charge.';
     await repo.putCreation(creation);
   }
 }
@@ -28,27 +31,22 @@ export async function generateThumbnail(
   const earlier = (await repo.creations()).filter(
     (c) => c.video.id === input.videoId,
   );
-  if (earlier.some((c) => c.state === 'submitting'))
+  if (earlier.some((c) => ['submitting', 'waiting'].includes(c.state)))
     throw new Error('Wait for the current thumbnail request.');
   if (
     earlier.some((c) => c.state === 'ambiguous' && !c.retryAcknowledged) &&
     !input.acknowledged
   )
     throw new Error(
-      'Check OpenAI and accept a possible second charge before generating again.',
+      'Check the provider and accept a possible second charge before generating again.',
     );
   const epoch = (await repo.run()).epoch;
   const video = await repo.video(input.videoId);
   if (!video) throw new Error('Open this video from Studio first.');
   const settings = (await repo.settings()).provider;
   const keys = await credentials();
-  const key =
-    keys.imageKey ||
-    (settings.protocol === 'openai' &&
-    settings.baseUrl.replace(/\/$/, '') === 'https://api.openai.com/v1'
-      ? keys.textKey
-      : '');
-  if (!key) throw new Error('Add an OpenAI API key in Settings.');
+  const key = keys.falKey;
+  if (!key) throw new Error('Add a Fal API key in Settings.');
   const references = await Promise.all(
     input.referenceIds.map(async (id) => {
       const reference = await repo.reference(id);
@@ -65,8 +63,13 @@ export async function generateThumbnail(
     prompt: input.prompt,
     references,
     sourceAssetId: input.useCurrent ? video.thumbnailAssetId : undefined,
-    model: settings.imageModel,
-    quality: settings.imageQuality,
+    model: settings.falModel,
+    quality:
+      settings.falModel === 'ideogram/v4.5/edit'
+        ? settings.ideogramQuality
+        : settings.imageQuality,
+    resolution: settings.imageResolution,
+    precision: settings.ideogramPrecision,
     state: 'submitting',
     createdAt: Date.now(),
   });
@@ -98,19 +101,11 @@ export async function generateThumbnail(
       await repo.putCreation(old);
     }
   try {
-    const asset = await createImage(
-      creation,
-      key,
-      assets,
-      async (id) => {
-        creation.requestId = id;
-        await repo.putCreation(creation);
-      },
-      () => repo.isActive(epoch, 'paused'),
+    creation.falRequest = await submitCreation(creation, key, assets, () =>
+      repo.isActive(epoch, 'paused'),
     );
-    await repo.putAsset(asset);
-    creation.assetId = asset.id;
-    creation.state = 'generated';
+    creation.requestId = creation.falRequest.requestId;
+    creation.state = 'waiting';
   } catch (error) {
     creation.state =
       error instanceof ProviderError && error.outcome === 'rejected'
@@ -121,4 +116,30 @@ export async function generateThumbnail(
   }
   await repo.putCreation(creation);
   return creation;
+}
+
+export async function pollCreations(repo: Repository): Promise<boolean> {
+  const key = (await credentials()).falKey;
+  if (!key) return false;
+  for (const creation of await repo.creations()) {
+    if (creation.state !== 'waiting' || !creation.falRequest) continue;
+    try {
+      const url = await pollImage(creation.falRequest, key);
+      if (!url) continue;
+      const asset = await imageAsset(await fetchImage(url, 'fal'), true);
+      await repo.putAsset(asset);
+      creation.assetId = asset.id;
+      creation.state = 'generated';
+      creation.error = undefined;
+      await repo.putCreation(creation);
+      return true;
+    } catch (error) {
+      creation.error =
+        error instanceof Error
+          ? error.message
+          : 'Could not retrieve the saved Fal request.';
+      await repo.putCreation(creation);
+    }
+  }
+  return false;
 }

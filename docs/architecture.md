@@ -6,7 +6,7 @@ Extension pages send validated commands to a service worker. The worker verifies
 
 The coordinator owns a single Web Lock across discovery, preflight, generation and application. Pause updates a separate durable epoch without waiting for that lock. Before paid requests and each DOM mutation, the run must still have the same epoch and mode. Worker initialization recovers interrupted submission and application states under the same lock.
 
-Chrome alarms wake the runner. Each persisted operation advances one generation or application. The worker continues while work can proceed and yields when queued Fal results need a later poll. OpenAI image edits use the official SDK with automatic retries disabled; the worker stays alive for the active stream, records the request ID and caches the final image. An interrupted OpenAI edit is ambiguous and is never automatically repeated. Requests save submitting state before the network call. Fal receipts are saved before a later tick polls. A network error or unreadable paid response remains ambiguous unless an explicit rejection establishes that no result was accepted. Provider response bodies are not echoed into errors.
+Chrome alarms wake the runner. Each persisted operation advances one generation or application. The worker continues while work can proceed and yields when queued Fal results need a later poll. All image edits use Fal queues. Original creations also persist their Fal receipts and resume retrieval on later wakes. A submission interrupted before its receipt is saved remains ambiguous and is never automatically repeated. Requests save submitting state before the network call. Fal receipts are saved before a later tick polls. A network error or unreadable paid response remains ambiguous unless an explicit rejection establishes that no result was accepted. Provider response bodies are not echoed into errors.
 
 Generated components retain source hashes and their provider/model/settings fingerprint. A fresh preflight is the authority for missingness. Generated output, local history and imported approvals never establish Studio state by themselves. Existing content and unreadable targets are preserved. Studio source and visibility checks happen before and after application.
 
@@ -34,9 +34,9 @@ The Studio launcher attaches a shadow-DOM button to the confirmed ytcp-video-thu
 
 Reference images are bounded local blobs, re-encoded without original metadata and capped at a 2048-pixel longest edge. Library metadata is separate from creation snapshots, so removing or renaming a reference does not change old requests. Archives include reference blobs and cached creations but strip signed Studio URLs; imported in-flight creations become ambiguous.
 
-Creation commands have client-generated UUIDs. Repeated commands with the same UUID return their existing checkpoint. The coordinator persists submitting, selects only requested reference blobs, and calls the official OpenAI SDK with retries disabled. A custom SDK fetch guard rechecks the durable pause epoch after multipart serialization and immediately before POST. Response request IDs persist before stream consumption; completed JPEG assets persist before the creation becomes generated. No queue polling or automatic resubmission exists for interrupted OpenAI streams.
+Creation commands have client-generated UUIDs. Repeated commands with the same UUID return their existing checkpoint. The coordinator persists submitting, selects only requested reference blobs, and sends a Fal queue request. A guard rechecks the durable pause epoch after data URI serialization and immediately before POST. Queue receipts persist before polling; completed JPEG assets persist before the creation becomes generated. Worker recovery resumes saved receipts without another paid submission. Backups strip receipt URLs and imports remove their polling authority.
 
-The composer uses image edits for reference-guided creation, and image generations for text-only creation. It uses the configured GPT Image 2.5 model and quality independently of the image localization mode. A deliberate click authorizes one new paid image. Reopening and choosing variants are local. Download and use-for-localization are separate from Studio publication; the latter uses the existing cached-source command.
+The composer uses each model family's Fal edit endpoint for reference-guided creation and its generation endpoint for text-only creation. It uses the saved Fal model and quality independently of local Layerize mode. A deliberate click authorizes one new paid image. Reopening and choosing variants are local. Download and use-for-localization are separate from Studio publication; the latter uses the existing cached-source command.
 
 ## Shared Svelte interface
 
@@ -49,3 +49,7 @@ Controls, icons and theme runtime come from `@openpost/ui`. The Dither family is
 ## Firefox adapters
 
 The browser adapter selects Firefox’s native Promise API namespace or Chromium’s native API. Firefox runs an event background document for validated DOM/canvas composition and uses the sidebar entry. Remembered Firefox credentials use a separate extension-origin IndexedDB database, since content scripts can access Firefox local storage. Session keys keep the browser’s default trusted-context restriction. Neither credential database nor account bindings enter backups.
+
+## Text connection setup
+
+OpenAI, OpenRouter and Anthropic presets supply their protocol, URL and model. Custom endpoints expose URL and model fields directly. Text credentials are stored with their base URL so a partial settings save cannot send a previous provider key to a new endpoint. Save and permission failures produce a toast.

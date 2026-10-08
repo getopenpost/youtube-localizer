@@ -11,7 +11,7 @@ import {
 import type { Repository } from './storage';
 import type { Translation } from '../providers/text';
 import { ProviderError } from '../providers/http';
-import type { ImageResult } from '../providers/openai-image';
+import type { ImageResult } from '../providers/image-result';
 export interface GenerationProvider {
   translate(job: Job, config: ProviderConfig): Promise<Translation>;
   submitImage(
@@ -61,7 +61,7 @@ export class Runner {
           slot.error =
             slot.generation === 'ambiguous'
               ? slot.requestId
-                ? `Image request ${slot.requestId} was interrupted. Check OpenAI before retrying.`
+                ? `Image request ${slot.requestId} was interrupted. Check the provider before retrying.`
                 : 'Request interrupted. Check your provider before retrying.'
               : undefined;
           changed = true;
@@ -304,9 +304,7 @@ export class Runner {
         slot.provider =
           config.imageProvider === 'layerize'
             ? 'ideogram-layerize/local'
-            : config.imageProvider === 'fal'
-              ? config.falModel
-              : config.imageModel;
+            : config.falModel;
         slot.settingsHash = await hash(JSON.stringify(config));
         await this.repo.putJob(job);
         if (!(await this.repo.isActive(run.epoch, 'generate'))) {

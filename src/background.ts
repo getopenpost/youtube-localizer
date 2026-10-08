@@ -1,11 +1,19 @@
 import { extensionApi } from './platform/webextension';
-import { generateThumbnail, recoverCreations } from './thumbnails/coordinator';
+import {
+  generateThumbnail,
+  recoverCreations,
+  pollCreations,
+} from './thumbnails/coordinator';
 import { defaultRun, hash, preferencesSchema, type Job } from './core/model';
 import { repository as repo } from './core/storage';
 import { preflightPlan } from './core/planner';
 import { Runner } from './core/runner';
 import { StudioBridge } from './studio/bridge';
-import { credentials, restrictStorage } from './platform/credentials';
+import {
+  credentials,
+  restrictStorage,
+  providerBase,
+} from './platform/credentials';
 import { commandSchema, type Command } from './platform/messages';
 import { dataUrl, fetchImage, imageAsset } from './platform/images';
 import { extractThumbnailText, translate } from './providers/text';
@@ -19,15 +27,26 @@ import {
 } from './layers/coordinator';
 import { renderedLayoutIsCurrent } from './layers/current';
 import { render } from './layers/bridge';
-import { editImage } from './providers/openai-image';
+async function textKey(config: { baseUrl: string; auth: string }) {
+  if (config.auth === 'none') return '';
+  const keys = await credentials();
+  const expected = keys.textBaseUrl ?? 'https://api.openai.com/v1';
+  if (providerBase(config.baseUrl) !== expected)
+    throw new ProviderError(
+      'Save the text connection in Settings before generating.',
+      'rejected',
+    );
+  return keys.textKey;
+}
 const bridge = new StudioBridge(repo);
 const runner = new Runner(
   repo,
   {
     async translate(job, config) {
-      return translate(job, config, (await credentials()).textKey);
+      return translate(job, config, await textKey(config));
     },
     async submitImage(job, config) {
+      const epoch = (await repo.run()).epoch;
       const asset = job.source.thumbnailAssetId
         ? await repo.asset(job.source.thumbnailAssetId)
         : undefined;
@@ -63,31 +82,12 @@ const runner = new Runner(
           provider: 'ideogram-layerize/local',
         };
       }
-      if (config.imageProvider !== 'fal')
-        return editImage(
-          job,
-          config,
-          (await credentials()).imageKey ||
-            (config.protocol === 'openai' &&
-            config.baseUrl.replace(/\/$/, '') === 'https://api.openai.com/v1'
-              ? (await credentials()).textKey
-              : ''),
-          asset.blob,
-          async (blob) => {
-            const result = await imageAsset(blob);
-            await repo.putAsset(result);
-            return result;
-          },
-          async (id) => {
-            if (job.slots.thumbnail) job.slots.thumbnail.requestId = id;
-            await repo.putJob(job);
-          },
-        );
       return submitImage(
         job,
         config,
         (await credentials()).falKey,
         await dataUrl(asset.blob),
+        () => repo.isActive(epoch, 'generate'),
       );
     },
     async pollImage(request) {
@@ -118,7 +118,11 @@ const kick = () => {
   void ready
     .then(() =>
       navigator.locks.request('localizer-coordinator', async () => {
-        while ((await pollTemplates(repo)) || (await runner.tick())) {
+        while (
+          (await pollCreations(repo)) ||
+          (await pollTemplates(repo)) ||
+          (await runner.tick())
+        ) {
           /* Every operation persists before this continuation. */
         }
       }),
@@ -500,7 +504,7 @@ async function execute(value: Command): Promise<unknown> {
       try {
         const strings = await extractThumbnailText(
           settings,
-          (await credentials()).textKey,
+          await textKey(settings),
           await dataUrl(asset.blob),
         );
         video.extractedThumbnailText = strings;
@@ -793,9 +797,14 @@ extensionApi().runtime.onMessage.addListener(
       .then((data) => {
         sendResponse({ ok: true, data });
         if (
-          ['generate', 'apply', 'prepare-template', 'retry-template'].includes(
-            parsed.data.type,
-          )
+          [
+            'generate',
+            'apply',
+            'prepare-template',
+            'retry-template',
+            'thumbnail-generate',
+            'settings',
+          ].includes(parsed.data.type)
         )
           kick();
       })

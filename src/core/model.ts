@@ -1,4 +1,10 @@
 import { z } from 'zod';
+import {
+  falImageModelSchema,
+  imageQualitySchema,
+  GPT_IMAGE_SUNBURST,
+  GPT_IMAGE_FLARE,
+} from './providers';
 
 // Language identifiers also become archive paths. Accept codes, never arbitrary path strings.
 const languageCode = z.string().regex(/^[a-z]{2,3}(?:-[A-Za-z0-9]{2,8}){0,2}$/);
@@ -50,34 +56,45 @@ export const preferencesSchema = z.object({
   glossary: z.string().max(6000).default(''),
 });
 export type Preferences = z.infer<typeof preferencesSchema>;
-export const providerConfigSchema = z.object({
-  protocol: z.enum(['openai', 'anthropic']).default('openai'),
-  preset: z.enum(['openai', 'anthropic', 'custom']).default('openai'),
-  baseUrl: z.string().url().default('https://api.openai.com/v1'),
-  model: z.string().min(1).max(150).default('gpt-4.1-mini'),
-  auth: z.enum(['bearer', 'none']).default('bearer'),
-  imageProvider: z.enum(['openai', 'fal', 'layerize']).default('openai'),
-  imageModel: z
-    .enum(['gpt-image-2.5-sunburst', 'gpt-image-2.5-flare'])
-    .default('gpt-image-2.5-sunburst'),
-  imageQuality: z
-    .enum(['auto', 'low', 'medium', 'high', 'xhigh', 'max'])
-    .default('auto'),
-  vision: z.boolean().default(true),
-  falModel: z
-    .enum([
-      'fal-ai/nano-banana/edit',
-      'fal-ai/nano-banana-pro/edit',
-      'ideogram/v4.5/edit',
-    ])
-    .default('fal-ai/nano-banana-pro/edit'),
-  ideogramQuality: z
-    .enum(['very_low', 'low', 'medium', 'high'])
-    .default('very_low'),
-  ideogramPrecision: z.enum(['regular', 'high']).default('high'),
-  imageResolution: z.enum(['1K', '2K']).default('1K'),
-  requestLimit: z.number().int().min(1).max(1000).default(30),
-});
+export const providerConfigSchema = z.preprocess(
+  (value) => {
+    if (
+      !value ||
+      typeof value !== 'object' ||
+      !('imageProvider' in value) ||
+      value.imageProvider !== 'openai'
+    )
+      return value;
+    const legacy = value as Record<string, unknown>;
+    return {
+      ...legacy,
+      imageProvider: 'fal',
+      falModel:
+        legacy.imageModel === 'gpt-image-2.5-flare'
+          ? GPT_IMAGE_FLARE
+          : GPT_IMAGE_SUNBURST,
+    };
+  },
+  z.object({
+    protocol: z.enum(['openai', 'anthropic']).default('openai'),
+    preset: z
+      .enum(['openai', 'anthropic', 'openrouter', 'custom'])
+      .default('openai'),
+    baseUrl: z.string().url().default('https://api.openai.com/v1'),
+    model: z.string().min(1).max(150).default('gpt-4.1-mini'),
+    auth: z.enum(['bearer', 'none']).default('bearer'),
+    imageProvider: z.enum(['fal', 'layerize']).default('fal'),
+    imageQuality: imageQualitySchema,
+    vision: z.boolean().default(true),
+    falModel: falImageModelSchema.default(GPT_IMAGE_SUNBURST),
+    ideogramQuality: z
+      .enum(['very_low', 'low', 'medium', 'high'])
+      .default('very_low'),
+    ideogramPrecision: z.enum(['regular', 'high']).default('high'),
+    imageResolution: z.enum(['1K', '2K']).default('1K'),
+    requestLimit: z.number().int().min(1).max(1000).default(30),
+  }),
+);
 export type ProviderConfig = z.infer<typeof providerConfigSchema>;
 export const settingsSchema = z.object({
   provider: providerConfigSchema,

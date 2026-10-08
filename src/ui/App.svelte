@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { Toaster } from '@openpost/ui/components/sonner';
   import Header from './Header.svelte';
   import About from './About.svelte';
   import { Button } from '@openpost/ui';
@@ -11,6 +12,7 @@
     <Header {page} />
     <View />
     <About />
+    <Toaster theme="system" position="bottom-right" closeButton />
   </div>
   {#snippet failed()}
     <main class="empty-state">

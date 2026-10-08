@@ -1,5 +1,6 @@
 import { z } from 'zod';
-import { providerConfigSchema, videoSchema } from '../core/model';
+import { falRequestSchema, videoSchema } from '../core/model';
+import { falImageModelSchema, imageQualitySchema } from '../core/providers';
 export const MAX_REFERENCES = 8;
 export const referenceSchema = z.object({
   id: z.string().uuid(),
@@ -14,9 +15,16 @@ export const creationSchema = z.object({
   prompt: z.string().trim().min(1).max(6000),
   references: z.array(referenceSchema).max(MAX_REFERENCES),
   sourceAssetId: z.string().optional(),
-  model: providerConfigSchema.shape.imageModel,
-  quality: providerConfigSchema.shape.imageQuality,
-  state: z.enum(['submitting', 'generated', 'error', 'ambiguous']),
+  model: z.enum([
+    ...falImageModelSchema.options,
+    'gpt-image-2.5-sunburst',
+    'gpt-image-2.5-flare',
+  ]),
+  quality: z.union([imageQualitySchema, z.literal('very_low')]).default('auto'),
+  resolution: z.enum(['1K', '2K']).default('1K'),
+  precision: z.enum(['regular', 'high']).default('regular'),
+  falRequest: falRequestSchema.optional(),
+  state: z.enum(['submitting', 'waiting', 'generated', 'error', 'ambiguous']),
   retryAcknowledged: z.boolean().default(false),
   requestId: z.string().optional(),
   assetId: z.string().optional(),

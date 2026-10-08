@@ -30,21 +30,24 @@ it('keeps remembered Firefox keys outside content-accessible local storage and c
     storage: { local, session },
   });
   await saveCredentials(
-    { textKey: 'text-key', imageKey: 'image-key', falKey: '' },
+    {
+      textKey: 'text-key',
+      textBaseUrl: 'https://openrouter.ai/api/v1',
+      falKey: '',
+    },
     true,
   );
   expect(local.values.credentials).toBeUndefined();
   await session.remove('credentials');
   expect(await credentials()).toEqual({
     textKey: 'text-key',
-    imageKey: 'image-key',
+    textBaseUrl: 'https://openrouter.ai/api/v1',
     falKey: '',
   });
   await saveCredentials({ textKey: 'session-only', falKey: '' }, false);
   await session.remove('credentials');
   expect(await credentials()).toEqual({
     textKey: '',
-    imageKey: '',
     falKey: '',
   });
   await forgetCredentials();
@@ -65,7 +68,6 @@ it('retains Chromium trusted-context access restrictions when storing keys', asy
   });
   expect(await credentials()).toEqual({
     textKey: 'chrome-key',
-    imageKey: '',
     falKey: '',
   });
   await forgetCredentials();

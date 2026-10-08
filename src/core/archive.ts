@@ -50,6 +50,7 @@ export async function exportArchive(repo: Repository): Promise<Blob> {
     creations: (await repo.creations()).map((creation) => ({
       ...creation,
       video: exportVideo(creation.video),
+      falRequest: undefined,
     })),
     format: 'youtube-localizer',
     version: 1,
@@ -203,7 +204,9 @@ export async function importArchive(repo: Repository, file: Blob) {
         throw new Error('A generated thumbnail references a missing image.');
     creation.video.thumbnailUrl = undefined;
     creation.video.checkedAt = undefined;
-    if (creation.state === 'submitting') creation.state = 'ambiguous';
+    creation.falRequest = undefined;
+    if (['submitting', 'waiting'].includes(creation.state))
+      creation.state = 'ambiguous';
     creation.retryAcknowledged = false;
   }
   await repo.importCache({
