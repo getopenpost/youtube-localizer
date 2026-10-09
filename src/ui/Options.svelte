@@ -262,6 +262,16 @@
             : 'Fal API key'}
         /></label
       >
+      <label class="checkbox-label"
+        ><CheckboxInput
+          checked={settings.rememberCredentials}
+          onchange={(e) =>
+            (draft = {
+              ...settings,
+              rememberCredentials: e.currentTarget.checked,
+            })}
+        />Remember keys on this device
+      </label>
     </fieldset>
     <fieldset {disabled}>
       <legend>Languages</legend>{#if channels.length > 1}<label
@@ -450,15 +460,6 @@
             checked={settings.provider.vision}
             onchange={(e) => provider({ vision: e.currentTarget.checked })}
           />Text model supports images
-        </label><label class="checkbox-label"
-          ><CheckboxInput
-            checked={settings.rememberCredentials}
-            onchange={(e) =>
-              (draft = {
-                ...settings,
-                rememberCredentials: e.currentTarget.checked,
-              })}
-          />Remember keys on this device
         </label><label
           >Max paid requests per batch <Input
             type="number"

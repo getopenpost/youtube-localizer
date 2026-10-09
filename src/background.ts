@@ -31,7 +31,14 @@ import { render } from './layers/bridge';
 async function textKey(config: { baseUrl: string; auth: string }) {
   if (config.auth === 'none') return '';
   const keys = await credentials();
-  const expected = keys.textBaseUrl ?? 'https://api.openai.com/v1';
+  if (!keys.textKey)
+    throw new ProviderError(
+      'Add your text provider API key in Settings.',
+      'rejected',
+    );
+  const expected = providerBase(
+    keys.textBaseUrl ?? 'https://api.openai.com/v1',
+  );
   if (providerBase(config.baseUrl) !== expected)
     throw new ProviderError(
       'Save the text connection in Settings before generating.',
@@ -182,7 +189,13 @@ async function execute(value: Command): Promise<unknown> {
       for (const video of context.videos) {
         const existing = await repo.video(video.id);
         await repo.putVideo(
-          existing ? { ...existing, channelName: video.channelName } : video,
+          existing
+            ? {
+                ...existing,
+                channelName: video.channelName,
+                thumbnailUrl: video.thumbnailUrl ?? existing.thumbnailUrl,
+              }
+            : video,
         );
       }
       return context;
@@ -306,8 +319,35 @@ async function execute(value: Command): Promise<unknown> {
       const jobs = await Promise.all(value.jobIds.map(getJob));
       const channels = new Set(jobs.map((job) => job.channelId));
       if (channels.size !== 1) throw new Error('Run one channel at a time.');
+      const preferences = await repo.preferences(jobs[0].channelId);
+      if (value.type === 'generate') {
+        const config = (await repo.settings()).provider;
+        const needsText = jobs.some((job) => {
+          const enabled = preferences?.components ??
+            job.enabledComponents ?? ['title', 'description', 'thumbnail'];
+          const pending = (
+            component: 'title' | 'description' | 'thumbnail',
+          ) => {
+            const slot = job.slots[component];
+            return (
+              enabled.includes(component) &&
+              slot?.generation === 'queued' &&
+              slot.application === 'pending' &&
+              slot.lastEvidence?.state === 'missing'
+            );
+          };
+          return (
+            pending('title') ||
+            pending('description') ||
+            (pending('thumbnail') &&
+              !job.thumbnailStrings &&
+              job.source.thumbnailTextApproved &&
+              (job.source.thumbnailText?.length ?? 0) > 0)
+          );
+        });
+        if (needsText) await textKey(config);
+      }
       for (const job of jobs) {
-        const preferences = await repo.preferences(job.channelId);
         if (preferences) job.enabledComponents = preferences.components;
         const slot = job.slots.thumbnail;
         if (

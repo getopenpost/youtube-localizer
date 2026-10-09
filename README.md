@@ -88,7 +88,7 @@ Text generation supports OpenAI, OpenRouter, Anthropic and custom endpoints, inc
 
 Provider usage is billed to your API account. Completed results are cached. Fal receipts survive restarts and resume retrieval without another submission. A submission interrupted before its receipt is saved requires checking the provider before another paid attempt.
 
-API keys are session-only by default. **Remember keys on this device** keeps them in trusted extension storage. Text keys are bound to their saved endpoint. Keys stay out of backups and sync storage. The extension has no telemetry, and OpenPost receives no video or image data.
+API keys are session-only by default and are cleared by an extension reload or browser restart. Select **Remember keys on this device** in Connection before saving to keep them across restarts. Text keys are bound to their saved endpoint. Keys stay out of backups and sync storage. The extension has no telemetry, and OpenPost receives no video or image data.
 
 Use **Backup & keys** in Settings to export your work before uninstalling. Backups contain images and history, so keep them private. After importing, reconnect accounts and review results before applying them.
 

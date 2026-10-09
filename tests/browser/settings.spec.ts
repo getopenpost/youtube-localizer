@@ -25,6 +25,20 @@ test('Settings Save persists the connection and reports success or denied permis
   await expect(
     page.getByText('Provider access was declined.', { exact: true }).first(),
   ).toBeVisible();
+  await page.evaluate(() => {
+    chrome.permissions.request = async () => true;
+  });
+  await page.getByLabel('Remember keys on this device').check();
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(page.getByText('Saved', { exact: true }).first()).toBeVisible();
+  // An extension reload or browser restart clears storage.session.
+  await page.evaluate(() => chrome.storage.session.remove('credentials'));
+  await page.reload();
+  await expect(page.getByLabel('API key', { exact: true })).toHaveAttribute(
+    'placeholder',
+    'Saved. Leave blank to keep.',
+  );
+  await expect(page.getByLabel('Remember keys on this device')).toBeChecked();
   await page.getByText('Backup & keys', { exact: true }).click();
   await page.getByLabel('API key', { exact: true }).fill('fixture-unsaved-key');
   await page.getByRole('button', { name: 'Forget keys', exact: true }).click();

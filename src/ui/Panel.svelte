@@ -358,6 +358,7 @@
                     : selected.filter((id) => id !== video.id))}
               /><AssetImage
                 assetId={video.thumbnailAssetId}
+                previewUrl={video.thumbnailUrl}
                 alt={`Thumbnail for ${video.title}`}
                 class="video-thumbnail"
               ></AssetImage><span class="video-info"

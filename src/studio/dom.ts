@@ -169,8 +169,17 @@ export async function discover(): Promise<StudioContext> {
           100,
         ),
         description: '',
-        thumbnailUrl:
-          row.querySelector<HTMLImageElement>('ytcp-thumbnail img')?.src,
+        thumbnailUrl: (() => {
+          const image = row.querySelector<HTMLImageElement>(
+            '#thumbnail-anchor img, ytcp-thumbnail img',
+          );
+          return (
+            image?.currentSrc ||
+            image?.src ||
+            image?.getAttribute('data-src') ||
+            undefined
+          );
+        })(),
         visibility,
         scheduledAt:
           visibility === 'scheduled'
