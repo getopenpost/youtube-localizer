@@ -1,3 +1,4 @@
+import { thumbnailSetupReason } from './thumbnail-setup';
 import { renderedLayoutIsCurrent } from '../layers/current';
 import {
   components,
@@ -206,7 +207,8 @@ export class Runner {
           thumbnail.application === 'pending' &&
           !job.thumbnailStrings &&
           job.source.thumbnailTextApproved &&
-          (job.source.thumbnailText?.length ?? 0) > 0;
+          (job.source.thumbnailText?.length ?? 0) > 0 &&
+          !thumbnailSetupReason(job, config);
         if (!pendingText.length && !needsWording) continue;
         // Preflight never authorizes a blind retry of any paid request in the same text bundle.
         if (
@@ -289,14 +291,7 @@ export class Runner {
           return true;
         }
         if (!job.wordingApproved || !job.source.thumbnailAssetId) continue;
-        if (
-          config.imageProvider !== 'layerize' &&
-          ((job.source.thumbnailWidth ?? 0) < 1280 ||
-            (job.source.thumbnailHeight ?? 0) < 720)
-        )
-          throw new Error(
-            'Choose a source image of at least 1280 × 720 before paying for image edits.',
-          );
+        if (thumbnailSetupReason(job, config)) continue;
         if (config.imageProvider !== 'layerize')
           await this.repo.consumeRequest(run.epoch);
         slot.generation = 'submitting';

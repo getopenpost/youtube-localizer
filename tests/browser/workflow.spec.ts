@@ -70,7 +70,7 @@ test('extension connects the current page, preflights a scheduled video, preserv
     review.getByText('Already present', { exact: true }),
   ).toHaveCount(2);
   await review
-    .getByRole('button', { name: 'Generate missing', exact: true })
+    .getByRole('button', { name: 'Generate text', exact: true })
     .click();
   await expect(review.getByLabel('English title', { exact: true })).toHaveValue(
     'Learn at your own pace',
@@ -81,10 +81,10 @@ test('extension connects the current page, preflights a scheduled video, preserv
     review.getByLabel('English description', { exact: true }),
   ).toHaveValue('00:00 Introduction');
   await review
-    .getByRole('button', { name: 'Generate missing', exact: true })
+    .getByRole('button', { name: 'Generate text', exact: true })
     .click();
   await expect(
-    review.getByRole('button', { name: 'Generate missing', exact: true }),
+    review.getByRole('button', { name: 'Generate text', exact: true }),
   ).toBeEnabled();
   expect(paidRequests).toBe(1);
   expect(studioState.saves).toBe(0);

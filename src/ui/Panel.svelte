@@ -9,6 +9,10 @@
     NativeSelect,
     CheckboxInput,
   } from '@openpost/ui';
+  import {
+    thumbnailSetupReason,
+    canGenerateThumbnail,
+  } from '../core/thumbnail-setup';
   import { approvalCount } from '../core/approval';
   import { preferencesSchema, type StudioContext } from '../core/model';
   import { videoStatus } from '../core/planner';
@@ -148,18 +152,43 @@
       ),
     ),
   );
+  const generationLabel = $derived(
+    prefs.components.includes('thumbnail')
+      ? 'Generate missing'
+      : 'Generate text',
+  );
+  const needsThumbnailSetup = $derived(
+    prefs.components.includes('thumbnail') &&
+      jobs.some((job) =>
+        thumbnailSetupReason(job, workspace.settings.provider),
+      ) &&
+      !jobs.some((job) =>
+        canGenerateThumbnail(job, workspace.settings.provider),
+      ) &&
+      !jobs.some((job) =>
+        (['title', 'description'] as const).some(
+          (component) =>
+            prefs.components.includes(component) &&
+            job.slots[component]?.generation === 'queued' &&
+            job.slots[component]?.application === 'pending' &&
+            job.slots[component]?.lastEvidence?.state === 'missing',
+        ),
+      ),
+  );
   const nextLabel = $derived(
     !checked
       ? 'Check missing translations'
       : ready
         ? 'Approve all'
-        : queued
-          ? 'Generate missing'
-          : approved
-            ? 'Apply approved'
-            : generated
-              ? 'Check translations'
-              : 'Generate missing',
+        : queued && needsThumbnailSetup
+          ? 'Set up thumbnails'
+          : queued
+            ? generationLabel
+            : approved
+              ? 'Apply approved'
+              : generated
+                ? 'Check translations'
+                : generationLabel,
   );
   async function next() {
     if (!context) return;
@@ -174,6 +203,10 @@
     }
     if (ready) {
       await command({ type: 'approve-all', jobIds });
+      return;
+    }
+    if (queued && needsThumbnailSetup) {
+      openPage('review');
       return;
     }
     if (queued) {

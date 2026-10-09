@@ -57,7 +57,7 @@ Temporary Firefox installations last until the browser closes. For a persistent 
 
 The extension preserves existing translations and checks Studio again before writing. It writes localized titles, descriptions and thumbnails through language dialogs. Audio, subtitles and publication settings stay unchanged.
 
-For thumbnail image edits, confirm the visible source text in Review, generate and approve its translated wording, then generate the images. Choose **Use another image** if the Studio preview is too small.
+Thumbnail translation must be enabled under Settings → Languages → Thumbnails. For image edits, confirm the visible source text in Review, generate and approve its translated wording, then generate the images. The side panel offers **Set up thumbnails** when these inputs are missing. When thumbnails are disabled, the action is labelled **Generate text**. Choose **Use another image** if the Studio preview is too small.
 
 For another account, select **Add account**, switch accounts in Studio and select **Read current Studio page**. Choose connected channels from the channel picker. Each run works on one channel.
 

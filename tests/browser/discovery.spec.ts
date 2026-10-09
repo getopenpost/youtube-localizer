@@ -70,3 +70,43 @@ test('a lost session key blocks generation without failing queued translations o
   expect(state.run.mode).toBe('paused');
   expect(state.run.requestsUsed).toBe(0);
 });
+
+test('queued thumbnails offer setup rather than an image generation that cannot run', async ({
+  context,
+  extensionId,
+  studioState,
+}) => {
+  void studioState;
+  const { panel } = await openSelection(context, extensionId);
+  await send(panel, {
+    type: 'preferences',
+    preferences: {
+      channelId: CHANNEL,
+      sourceLanguage: 'pt',
+      targetLanguages: ['en'],
+      components: ['thumbnail'],
+      glossary: '',
+    },
+  });
+  await send(panel, {
+    type: 'preflight',
+    channelId: CHANNEL,
+    videoIds: [VIDEO],
+  });
+  await panel.getByLabel('Select visible', { exact: true }).check();
+  await expect(
+    send(panel, { type: 'generate', jobIds: [`${CHANNEL}/${VIDEO}/en`] }),
+  ).rejects.toThrow('Read and confirm the source thumbnail text.');
+  await expect(
+    panel.getByRole('button', { name: 'Set up thumbnails', exact: true }),
+  ).toBeVisible();
+  const reviewOpened = context.waitForEvent('page');
+  await panel
+    .getByRole('button', { name: 'Set up thumbnails', exact: true })
+    .click();
+  const review = await reviewOpened;
+  await expect(review).toHaveURL(/\/review\.html$/);
+  await expect(
+    review.getByRole('button', { name: 'Read text', exact: true }),
+  ).toBeVisible();
+});

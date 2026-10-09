@@ -49,6 +49,15 @@
         (!prefs || prefs.targetLanguages.includes(job.language)),
     ),
   );
+  const generationLabel = $derived(
+    jobs.some((job) =>
+      (prefs?.components ?? job.enabledComponents ?? components).includes(
+        'thumbnail',
+      ),
+    )
+      ? 'Generate missing'
+      : 'Generate text',
+  );
   const videos = $derived(
     workspace.videos.filter((video) =>
       jobs.some((job) => job.videoId === video.id),
@@ -181,7 +190,7 @@
                   }),
                 )}
               ><ThemeIcon role="sparkles" width={16} height={16}
-              ></ThemeIcon>Generate missing
+              ></ThemeIcon>{generationLabel}
             </Button>{/if}<DownloadButton
             blob={() =>
               exportGenerated(repository, {

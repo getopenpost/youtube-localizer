@@ -1,3 +1,7 @@
+import {
+  thumbnailSetupReason,
+  canGenerateThumbnail,
+} from './core/thumbnail-setup';
 import { approveAll } from './core/approval';
 import { extensionApi } from './platform/webextension';
 import {
@@ -342,10 +346,29 @@ async function execute(value: Command): Promise<unknown> {
             (pending('thumbnail') &&
               !job.thumbnailStrings &&
               job.source.thumbnailTextApproved &&
-              (job.source.thumbnailText?.length ?? 0) > 0)
+              (job.source.thumbnailText?.length ?? 0) > 0 &&
+              !thumbnailSetupReason(job, config))
           );
         });
         if (needsText) await textKey(config);
+        const blocked = jobs
+          .filter((job) =>
+            (
+              preferences?.components ??
+              job.enabledComponents ?? ['title', 'description', 'thumbnail']
+            ).includes('thumbnail'),
+          )
+          .map((job) => thumbnailSetupReason(job, config))
+          .filter(Boolean);
+        const readyThumbnail = jobs.some(
+          (job) =>
+            (
+              preferences?.components ??
+              job.enabledComponents ?? ['title', 'description', 'thumbnail']
+            ).includes('thumbnail') && canGenerateThumbnail(job, config),
+        );
+        if (blocked.length && !needsText && !readyThumbnail)
+          throw new Error(blocked[0]);
       }
       for (const job of jobs) {
         if (preferences) job.enabledComponents = preferences.components;
